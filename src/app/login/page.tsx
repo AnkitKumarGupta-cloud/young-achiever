@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { getMe } from '@/lib/auth';
+import { supabaseServer } from '@/lib/supabase/server';
 import { Crown, KeyIcon, PeopleIcon, ShieldIcon, StarIcon } from '@/components/icons';
 import LoginForm from './LoginForm';
 
@@ -19,8 +19,11 @@ function Brand({ dark }: { dark?: boolean }) {
 }
 
 export default async function LoginPage() {
-  const me = await getMe();
-  if (me) redirect(me.role === 'admin' ? '/admin' : '/parent');
+  // Cookie-only check (no network round trip). /parent and /admin re-verify the user and role.
+  const {
+    data: { session },
+  } = await supabaseServer().auth.getSession();
+  if (session) redirect('/parent');
   return (
     <main className="lg">
       <section className="lg-hero">
