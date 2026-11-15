@@ -3,10 +3,14 @@
 import { useEffect, useState } from 'react';
 import type { PhotoItem } from '@/lib/types';
 
-/** Certificates shown whole (never cropped). Tap one to read it full size. */
-export default function CertGallery({ items, name }: { items: PhotoItem[]; name: string }) {
+/**
+ * Grid that opens items full size. variant "cert": shown whole (never cropped) with a title.
+ * variant "photo": cropped tiles with a lightbox.
+ */
+export default function CertGallery({ items, name, variant = 'cert' }: { items: PhotoItem[]; name: string; variant?: 'cert' | 'photo' }) {
   const [open, setOpen] = useState<number | null>(null);
   const cur = open === null ? null : items[open];
+  const alt = (c: PhotoItem) => (variant === 'cert' ? (c.caption ? `Certificate: ${c.caption}` : `Certificate of ${name}`) : c.caption || `Photo of ${name}`);
 
   useEffect(() => {
     if (open === null) return;
@@ -25,25 +29,36 @@ export default function CertGallery({ items, name }: { items: PhotoItem[]; name:
 
   return (
     <>
-      <div className="pv2-certs">
-        {items.map((c, i) => (
-          <button key={c.id} type="button" className="pv2-cert" onClick={() => setOpen(i)}>
-            <span className="pv2-cert-f">
+      {variant === 'cert' ? (
+        <div className="pv2-certs">
+          {items.map((c, i) => (
+            <button key={c.id} type="button" className="pv2-cert" onClick={() => setOpen(i)}>
+              <span className="pv2-cert-f">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={c.url} alt={alt(c)} loading="lazy" />
+              </span>
+              <span className="pv2-cert-t">{c.caption || 'Certificate'}</span>
+              <span className="pv2-cert-v">View certificate</span>
+            </button>
+          ))}
+        </div>
+      ) : (
+        <div className={`ap-gal n${Math.min(items.length, 4)}`}>
+          {items.map((c, i) => (
+            <button key={c.id} type="button" className="ap-gal-i" onClick={() => setOpen(i)} aria-label={`Open ${alt(c)}`}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={c.url} alt={c.caption ? `Certificate: ${c.caption}` : `Certificate of ${name}`} loading="lazy" />
-            </span>
-            <span className="pv2-cert-t">{c.caption || 'Certificate'}</span>
-            <span className="pv2-cert-v">View certificate</span>
-          </button>
-        ))}
-      </div>
+              <img src={c.url} alt={alt(c)} loading="lazy" />
+            </button>
+          ))}
+        </div>
+      )}
       {cur && (
-        <div className="lb" role="dialog" aria-modal="true" aria-label="Certificate" onClick={() => setOpen(null)}>
+        <div className="lb" role="dialog" aria-modal="true" aria-label={variant === 'cert' ? 'Certificate' : 'Photo'} onClick={() => setOpen(null)}>
           <figure onClick={(e) => e.stopPropagation()}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={cur.url} alt={cur.caption ? `Certificate: ${cur.caption}` : `Certificate of ${name}`} />
+            <img src={cur.url} alt={alt(cur)} />
             <figcaption>
-              <span>{cur.caption || 'Certificate'}</span>
+              <span>{variant === 'cert' ? cur.caption || 'Certificate' : cur.caption || ''}</span>
               <span className="lb-n">
                 {open! + 1} / {items.length}
               </span>
@@ -54,10 +69,10 @@ export default function CertGallery({ items, name }: { items: PhotoItem[]; name:
           </button>
           {items.length > 1 && (
             <>
-              <button type="button" className="lb-p" aria-label="Previous certificate" onClick={(e) => { e.stopPropagation(); setOpen((open! - 1 + items.length) % items.length); }}>
+              <button type="button" className="lb-p" aria-label="Previous" onClick={(e) => { e.stopPropagation(); setOpen((open! - 1 + items.length) % items.length); }}>
                 &#8249;
               </button>
-              <button type="button" className="lb-nx" aria-label="Next certificate" onClick={(e) => { e.stopPropagation(); setOpen((open! + 1) % items.length); }}>
+              <button type="button" className="lb-nx" aria-label="Next" onClick={(e) => { e.stopPropagation(); setOpen((open! + 1) % items.length); }}>
                 &#8250;
               </button>
             </>
