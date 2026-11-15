@@ -23,12 +23,12 @@ export default function ProfileView({ profile }: { profile: LoadedProfile }) {
     { label: 'Standard', value: a.fide_standard },
     { label: 'Rapid', value: a.fide_rapid },
     { label: 'Blitz', value: a.fide_blitz },
-  ].filter((r) => r.value !== null && r.value !== undefined);
+  ].filter((r) => typeof r.value === 'number' && r.value >= 1000); // hides typos like "7"
 
   const main = photos[0];
   const rest = photos.slice(1);
   const banner = rest.length >= 3 ? rest.pop()! : null;
-  const bio = buildBio(a, other, results);
+  const bio = a.bio?.trim() || buildBio(a, other, results);
   const link = `${siteOrigin()}/achievers/${a.slug}`;
 
   const highlights: { n: number; l: string }[] = [];

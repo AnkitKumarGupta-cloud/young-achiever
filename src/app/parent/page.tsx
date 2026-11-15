@@ -66,7 +66,7 @@ export default async function ParentPage() {
           results={results}
           photos={photos}
           certificates={certificates}
-          bioText={buildBio(a, other, results)}
+          bioText={a.bio?.trim() || buildBio(a, other, results)}
           pct={pct}
           fullUrl={fullUrl}
         />

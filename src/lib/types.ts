@@ -32,3 +32,6 @@ export type LoadedProfile = {
 };
 
 export type FormState = { error?: string; ok?: string } | undefined;
+
+/** What we read off a certificate, for the parent to review. */
+export type CertGuess = { year: string; event: string; result: string; title: string; warning?: string };

@@ -7,7 +7,8 @@ import { revalidatePath } from 'next/cache';
 import { requireParent } from '@/lib/auth';
 import { supabaseServer } from '@/lib/supabase/server';
 import { siteOrigin } from '@/lib/site';
-import type { FormState } from '@/lib/types';
+import type { Achiever, CertGuess, FormState } from '@/lib/types';
+import { readCertificateImage, writeBio } from '@/lib/ai';
 
 const MAX_PHOTOS = 8;
 const MAX_CERTS = 12;
@@ -18,7 +19,10 @@ const optInt = (label: string) =>
     .string()
     .trim()
     .transform((v) => (v === '' ? null : Number(v)))
-    .refine((v) => v === null || (Number.isInteger(v) && v >= 0 && v <= 3500), `${label} must be a whole number from 0 to 3500.`);
+    .refine(
+      (v) => v === null || (Number.isInteger(v) && v >= 1000 && v <= 3500),
+      `${label} rating must be a whole number from 1000 to 3500. Leave it blank if there is no rating yet.`,
+    );
 
 const baseSchema = z.object({
   full_name: z.string().trim().min(2, 'Enter the full name.').max(100),
@@ -107,6 +111,21 @@ export async function saveProfile(_prev: FormState, formData: FormData): Promise
   if (results.length) {
     const { error } = await sb.from('tournament_results').insert(results.map((r) => ({ ...r, achiever_id: ach.id })));
     if (error) return { error: 'Could not save tournament results.' };
+  }
+
+  // Rewrite the About paragraph from the saved facts (AI). If AI is unavailable, the page falls back to the standard text.
+  const [{ data: full }, { data: certs }] = await Promise.all([
+    sb.from('achievers').select('*').eq('id', ach.id).maybeSingle(),
+    sb.from('photos').select('caption').eq('achiever_id', ach.id).eq('kind', 'certificate'),
+  ]);
+  if (full) {
+    const bio = await writeBio(
+      full as Achiever,
+      other.map((o, i) => ({ id: String(i), label: o.label, value: o.value })),
+      results.map((r, i) => ({ id: String(i), year: r.year, event: r.event, result: r.result })),
+      (certs ?? []).map((c) => c.caption as string).filter(Boolean),
+    );
+    await sb.from('achievers').update({ bio: bio ?? '' }).eq('id', ach.id);
   }
 
   revalidatePath('/parent');
@@ -219,4 +238,35 @@ export async function saveFocus(x: number, y: number): Promise<FormState> {
   if (error) return { error: 'Could not save. Ask the administrator to finish the database update.' };
   revalidatePath('/parent');
   return { ok: 'Saved.' };
+}
+
+/** Reads a certificate with AI and suggests its title and tournament result. Nothing is saved here. */
+export async function readCertificate(formData: FormData): Promise<CertGuess | null> {
+  const me = await requireParent();
+  const file = formData.get('photo');
+  if (!(file instanceof File) || !ALLOWED.has(file.type) || file.size > 6 * 1024 * 1024) return null;
+  const sb = supabaseServer();
+  const { data: ach } = await sb.from('achievers').select('full_name').eq('owner_id', me.id).maybeSingle();
+  let jpeg: Buffer;
+  try {
+    jpeg = await sharp(Buffer.from(await file.arrayBuffer())).rotate().resize({ width: 1600, height: 1600, fit: 'inside', withoutEnlargement: true }).jpeg({ quality: 85 }).toBuffer();
+  } catch {
+    return null;
+  }
+  const c = await readCertificateImage(jpeg);
+  if (!c || !c.isCertificate || !c.event.trim()) return null;
+  const event = c.place && !c.event.toLowerCase().includes(c.place.toLowerCase()) ? `${c.event}, ${c.place}` : c.event;
+  const section = [c.category, c.timeControl].map((x) => x.trim()).filter(Boolean).join(' ');
+  const pts = c.points.trim() ? (c.rounds.trim() ? `${c.points} / ${c.rounds} points` : `${c.points} point${c.points === '1' ? '' : 's'}`) : '';
+  const year = /^\d{4}$/.test(c.year.trim()) ? c.year.trim() : '';
+  const words = (s: string) => s.toLowerCase().split(/[^a-z]+/).filter((w) => w.length > 2);
+  const mine = new Set(words(ach?.full_name ?? ''));
+  const nameOk = !c.playerName.trim() || words(c.playerName).some((w) => mine.has(w));
+  return {
+    year,
+    event: [event, section].filter(Boolean).join(' · ').slice(0, 160),
+    result: [c.rank.trim(), pts].filter(Boolean).join(' · ').slice(0, 160) || 'Participated',
+    title: [c.event, c.timeControl.trim()].filter(Boolean).join(' · ').slice(0, 160),
+    warning: nameOk ? undefined : `The name on this certificate ("${c.playerName}") doesn't look like ${ach?.full_name}. Please check it's the right one.`,
+  };
 }

@@ -14,7 +14,7 @@ export function buildBio(a: Achiever, other: OtherRating[], results: TournamentR
     ['Standard', a.fide_standard],
     ['Rapid', a.fide_rapid],
     ['Blitz', a.fide_blitz],
-  ].filter((x): x is [string, number] => x[1] !== null && x[1] !== undefined);
+  ].filter((x): x is [string, number] => typeof x[1] === 'number' && x[1] >= 1000);
 
   if (rt.length === 1) t.push(`${first} holds a FIDE ${rt[0][0]} rating of ${rt[0][1]}.`);
   else if (rt.length > 1) {

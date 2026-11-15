@@ -3,10 +3,10 @@
 import Link from 'next/link';
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { useFormState, useFormStatus } from 'react-dom';
-import { deletePhoto, saveFocus, saveProfile, setMainPhoto, uploadPhoto } from './actions';
+import { deletePhoto, readCertificate, saveFocus, saveProfile, setMainPhoto, uploadPhoto } from './actions';
 import CopyLink from '@/components/CopyLink';
 import { EyeIcon } from '@/components/icons';
-import type { Achiever, OtherRating, PhotoItem, TournamentResult } from '@/lib/types';
+import type { Achiever, CertGuess, OtherRating, PhotoItem, TournamentResult } from '@/lib/types';
 
 type OtherRow = { k: number; label: string; value: string };
 type ResultRow = { k: number; year: string; event: string; result: string };
@@ -305,8 +305,8 @@ function shrink(file: File, max = 2000): Promise<File> {
   });
 }
 
-function Certificates({ items, register }: { items: PhotoItem[]; register: (fn: () => Promise<void>) => void }) {
-  const [ready, setReady] = useState<{ file: File; url: string; title: string }[]>([]);
+function Certificates({ items, register, onDetected }: { items: PhotoItem[]; register: (fn: () => Promise<void>) => void; onDetected: (g: CertGuess) => boolean }) {
+  const [ready, setReady] = useState<{ file: File; url: string; title: string; reading?: boolean; note?: string }[]>([]);
   const [msg, setMsg] = useState<{ error?: string; ok?: string }>({});
   const [busy, setBusy] = useState(false);
 
@@ -348,7 +348,7 @@ function Certificates({ items, register }: { items: PhotoItem[]; register: (fn: 
       <p className="muted">
         Add certificates from tournaments. They are shown whole, never cropped, and visitors can tap one to read it.
         Give each a short title, for example &ldquo;Western Asian Youth Championship 2026 &middot; Rapid&rdquo;. Up to 12.
-        Chosen certificates are added automatically when you press Next, Save draft or Publish.
+        We read each certificate and fill in its title and tournament result for you. Check them, then press Next, Save draft or Publish.
       </p>
       {items.length > 0 && (
         <div className="pd-certs">
@@ -377,7 +377,20 @@ function Certificates({ items, register }: { items: PhotoItem[]; register: (fn: 
               const fl = Array.from(e.target.files ?? []);
               e.target.value = '';
               const shrunk = await Promise.all(fl.map((f) => shrink(f)));
-              setReady((r) => [...r, ...shrunk.map((f) => ({ file: f, url: URL.createObjectURL(f), title: '' }))]);
+              const added = shrunk.map((f) => ({ file: f, url: URL.createObjectURL(f), title: '', reading: true }));
+              setReady((r) => [...r, ...added]);
+              // Read each certificate and fill in the title and a tournament result automatically.
+              for (const item of added) {
+                const fd = new FormData();
+                fd.append('photo', item.file);
+                const g = await readCertificate(fd).catch(() => null);
+                const isNew = g ? onDetected(g) : false;
+                const note = !g
+                  ? 'Could not read this certificate automatically. Type the title, and add the result in the Results tab.'
+                  : (g.warning ? `${g.warning} ` : '') +
+                    (isNew ? `Added to Results: ${g.year} · ${g.event} · ${g.result}.` : 'This tournament is already in your Results.');
+                setReady((all) => all.map((x) => (x.url === item.url ? { ...x, reading: false, note, title: x.title || g?.title || '' } : x)));
+              }
             }}
           />
           <p className="muted" style={{ margin: '6px 0 0' }}>Got a PDF or Word file? Take a screenshot of the certificate and add that.</p>
@@ -386,7 +399,7 @@ function Certificates({ items, register }: { items: PhotoItem[]; register: (fn: 
           <div key={r.url} className="pd-cready">
             <div className="pd-cert-i" style={{ backgroundImage: `url("${r.url}")` }} />
             <div className="field">
-              <label htmlFor={`ct${i}`}>Title</label>
+              <label htmlFor={`ct${i}`}>Title{r.reading ? ' (reading the certificate…)' : ''}</label>
               <input
                 id={`ct${i}`}
                 type="text"
@@ -395,6 +408,7 @@ function Certificates({ items, register }: { items: PhotoItem[]; register: (fn: 
                 placeholder="e.g. Western Asian Youth Championship 2026 · Rapid"
                 onChange={(e) => setReady((all) => all.map((x, j) => (j === i ? { ...x, title: e.target.value } : x)))}
               />
+              {r.note && <p className="muted" style={{ margin: '6px 0 0', fontSize: '.85rem' }}>{r.note}</p>}
             </div>
             <button
               type="button"
@@ -450,6 +464,8 @@ export default function Dashboard({
   const main = photos[0];
   const pos = { x: a.hero_x ?? 50, y: a.hero_y ?? 35 };
   const flushCerts = useRef<() => Promise<void>>(async () => {});
+  const rowsRef = useRef(rows);
+  rowsRef.current = rows;
   const [busy, setBusy] = useState(false);
   async function go(next: number) {
     setBusy(true);
@@ -532,8 +548,8 @@ export default function Dashboard({
                   <label>About text</label>
                   <div className="bio-prev">{bioText}</div>
                   <p className="muted" style={{ margin: '8px 0 0' }}>
-                    Written for you automatically from the details you enter. Nothing to type here, and no personal details
-                    are ever added. It updates after you save.
+                    Written for you automatically by AI from the details you enter (ratings, results, certificates). It only uses
+                    those facts and never adds personal details. It updates each time you save.
                   </p>
                 </div>
               </div>
@@ -583,7 +599,18 @@ export default function Dashboard({
           </div>
 
           <div className="pd-panel" hidden={tab !== 2}>
-            <Certificates items={certificates} register={(fn) => { flushCerts.current = fn; }} />
+            <Certificates
+              items={certificates}
+              register={(fn) => { flushCerts.current = fn; }}
+              onDetected={(g) => {
+                const same = (e: string) => e.trim().toLowerCase() === g.event.trim().toLowerCase();
+                if (rowsRef.current.some((x) => same(x.event))) return false;
+                const row = { k: Date.now() + Math.random(), year: g.year || String(new Date().getFullYear()), event: g.event, result: g.result };
+                rowsRef.current = [...rowsRef.current, row];
+                setRows(rowsRef.current);
+                return true;
+              }}
+            />
           </div>
 
           <div className="pd-foot">
