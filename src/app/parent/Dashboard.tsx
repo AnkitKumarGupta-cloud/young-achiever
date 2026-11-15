@@ -424,11 +424,7 @@ function Certificates({ items, register, onDetected }: { items: PhotoItem[]; reg
         ))}
         {msg.error && <p className="error" style={{ margin: 0 }}>{msg.error}</p>}
         {msg.ok && <p className="ok" style={{ margin: 0 }}>{msg.ok}</p>}
-        <div>
-          <button type="button" className="primary" onClick={upload} disabled={busy || !ready.length}>
-            {busy ? 'Uploading…' : `Add ${ready.length > 1 ? `${ready.length} certificates` : 'certificate'}`}
-          </button>
-        </div>
+        {busy && <p className="muted" style={{ margin: 0 }}>Uploading certificates…</p>}
       </div>
     </div>
   );
