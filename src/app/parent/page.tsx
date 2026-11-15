@@ -60,7 +60,7 @@ export default async function ParentPage() {
           <p>Add photos, certificates, FIDE ratings and tournament results, then press Publish. Your page goes live straight away.</p>
         </section>
         <Dashboard
-          key={`${a.fide_standard}-${a.fide_rapid}-${a.fide_blitz}-${a.full_name}-${[...photos, ...certificates].map((p) => p.id).join(',')}`}
+          key={`${a.fide_standard}-${a.fide_rapid}-${a.fide_blitz}-${a.full_name}-${photos.map((p) => p.id).join(",")}`}
           achiever={a}
           other={other}
           results={results}

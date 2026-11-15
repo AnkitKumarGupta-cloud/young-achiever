@@ -305,12 +305,22 @@ function shrink(file: File, max = 2000): Promise<File> {
   });
 }
 
-function Certificates({ items }: { items: PhotoItem[] }) {
+function Certificates({ items, register }: { items: PhotoItem[]; register: (fn: () => Promise<void>) => void }) {
   const [ready, setReady] = useState<{ file: File; url: string; title: string }[]>([]);
   const [msg, setMsg] = useState<{ error?: string; ok?: string }>({});
   const [busy, setBusy] = useState(false);
 
+  // Chosen certificates upload automatically when the parent moves on (Next, another tab, Save or Publish).
+  const pending = useRef(ready);
+  pending.current = ready;
+  useEffect(() => {
+    register(async () => {
+      if (pending.current.length) await upload();
+    });
+  });
+
   async function upload() {
+    const ready = pending.current;
     if (!ready.length) return setMsg({ error: 'Choose a certificate first.' });
     setBusy(true);
     setMsg({});
@@ -338,6 +348,7 @@ function Certificates({ items }: { items: PhotoItem[] }) {
       <p className="muted">
         Add certificates from tournaments. They are shown whole, never cropped, and visitors can tap one to read it.
         Give each a short title, for example &ldquo;Western Asian Youth Championship 2026 &middot; Rapid&rdquo;. Up to 12.
+        Chosen certificates are added automatically when you press Next, Save draft or Publish.
       </p>
       {items.length > 0 && (
         <div className="pd-certs">
@@ -438,6 +449,14 @@ export default function Dashboard({
   const live = a.published && !a.taken_down;
   const main = photos[0];
   const pos = { x: a.hero_x ?? 50, y: a.hero_y ?? 35 };
+  const flushCerts = useRef<() => Promise<void>>(async () => {});
+  const [busy, setBusy] = useState(false);
+  async function go(next: number) {
+    setBusy(true);
+    await flushCerts.current();
+    setBusy(false);
+    setTab(next);
+  }
 
   return (
     <>
@@ -488,13 +507,19 @@ export default function Dashboard({
       <section className="card pd-edit" id="edit">
         <div className="pd-steps" role="tablist">
           {TABS.map((t, i) => (
-            <button key={t} type="button" role="tab" aria-selected={tab === i} className={tab === i ? 'on' : ''} onClick={() => setTab(i)}>
+            <button key={t} type="button" role="tab" aria-selected={tab === i} className={tab === i ? 'on' : ''} onClick={() => go(i)} disabled={busy}>
               {i + 1} &middot; {t}
             </button>
           ))}
         </div>
         <div className="pd-panels">
-          <form id="pform" action={action}>
+          <form
+            id="pform"
+            action={async (fd: FormData) => {
+              await flushCerts.current();
+              action(fd);
+            }}
+          >
             <div className="pd-panel" hidden={tab !== 0}>
               <h2>Player</h2>
               <p className="muted">Basic information shown on the page.</p>
@@ -558,13 +583,13 @@ export default function Dashboard({
           </div>
 
           <div className="pd-panel" hidden={tab !== 2}>
-            <Certificates items={certificates} />
+            <Certificates items={certificates} register={(fn) => { flushCerts.current = fn; }} />
           </div>
 
           <div className="pd-foot">
             <button form="pform" name="intent" value="save">Save draft</button>
             {tab < TABS.length - 1 && (
-              <button type="button" className="primary" onClick={() => setTab(tab + 1)}>Next</button>
+              <button type="button" className="primary" onClick={() => go(tab + 1)} disabled={busy}>{busy ? 'Saving…' : 'Next'}</button>
             )}
           </div>
         </div>
