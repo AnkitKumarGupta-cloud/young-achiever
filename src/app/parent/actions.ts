@@ -7,8 +7,8 @@ import { revalidatePath } from 'next/cache';
 import { requireParent } from '@/lib/auth';
 import { supabaseServer } from '@/lib/supabase/server';
 import { siteOrigin } from '@/lib/site';
-import type { Achiever, CertGuess, FormState } from '@/lib/types';
-import { aiEnabled, readCertificateImage, writeBio } from '@/lib/ai';
+import type { Achiever, FormState } from '@/lib/types';
+import { writeBio } from '@/lib/ai';
 
 const MAX_PHOTOS = 8;
 const MAX_CERTS = 12;
@@ -240,35 +240,3 @@ export async function saveFocus(x: number, y: number): Promise<FormState> {
   return { ok: 'Saved.' };
 }
 
-/** Reads a certificate with AI and suggests its title and tournament result. Nothing is saved here. */
-export async function readCertificate(formData: FormData): Promise<CertGuess | 'ocr' | null> {
-  const me = await requireParent();
-  if (!aiEnabled()) return 'ocr'; // no AI key: the browser reads it with free OCR instead
-  const file = formData.get('photo');
-  if (!(file instanceof File) || !ALLOWED.has(file.type) || file.size > 6 * 1024 * 1024) return null;
-  const sb = supabaseServer();
-  const { data: ach } = await sb.from('achievers').select('full_name').eq('owner_id', me.id).maybeSingle();
-  let jpeg: Buffer;
-  try {
-    jpeg = await sharp(Buffer.from(await file.arrayBuffer())).rotate().resize({ width: 1600, height: 1600, fit: 'inside', withoutEnlargement: true }).jpeg({ quality: 85 }).toBuffer();
-  } catch {
-    return null;
-  }
-  const c = await readCertificateImage(jpeg);
-  if (!c) return 'ocr'; // AI failed: fall back to OCR in the browser
-  if (!c.isCertificate || !c.event.trim()) return null;
-  const event = c.place && !c.event.toLowerCase().includes(c.place.toLowerCase()) ? `${c.event}, ${c.place}` : c.event;
-  const section = [c.category, c.timeControl].map((x) => x.trim()).filter(Boolean).join(' ');
-  const pts = c.points.trim() ? (c.rounds.trim() ? `${c.points} / ${c.rounds} points` : `${c.points} point${c.points === '1' ? '' : 's'}`) : '';
-  const year = /^\d{4}$/.test(c.year.trim()) ? c.year.trim() : '';
-  const words = (s: string) => s.toLowerCase().split(/[^a-z]+/).filter((w) => w.length > 2);
-  const mine = new Set(words(ach?.full_name ?? ''));
-  const nameOk = !c.playerName.trim() || words(c.playerName).some((w) => mine.has(w));
-  return {
-    year,
-    event: [event, section].filter(Boolean).join(' · ').slice(0, 160),
-    result: [c.rank.trim(), pts].filter(Boolean).join(' · ').slice(0, 160) || 'Participated',
-    title: [c.event, c.timeControl.trim()].filter(Boolean).join(' · ').slice(0, 160),
-    warning: nameOk ? undefined : `The name on this certificate ("${c.playerName}") doesn't look like ${ach?.full_name}. Please check it's the right one.`,
-  };
-}

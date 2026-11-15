@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { useFormState, useFormStatus } from 'react-dom';
-import { deletePhoto, readCertificate, saveFocus, saveProfile, setMainPhoto, uploadPhoto } from './actions';
+import { deletePhoto, saveFocus, saveProfile, setMainPhoto, uploadPhoto } from './actions';
 import CopyLink from '@/components/CopyLink';
 import { EyeIcon } from '@/components/icons';
 import { readCertificateOcr } from '@/lib/certOcr';
@@ -382,10 +382,7 @@ function Certificates({ items, register, onDetected }: { items: PhotoItem[]; reg
               setReady((r) => [...r, ...added]);
               // Read each certificate and fill in the title and a tournament result automatically.
               for (const item of added) {
-                const fd = new FormData();
-                fd.append('photo', item.file);
-                const first = await readCertificate(fd).catch(() => 'ocr' as const);
-                const g = first === 'ocr' ? await readCertificateOcr(item.file) : first;
+                const g = await readCertificateOcr(item.file);
                 const isNew = g ? onDetected(g) : false;
                 const note = !g
                   ? 'Could not read this certificate automatically. Type the title, and add the result in the Results tab.'

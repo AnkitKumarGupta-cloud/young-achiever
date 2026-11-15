@@ -1,106 +1,81 @@
 import 'server-only';
-import { z } from 'zod';
 import type { Achiever, OtherRating, TournamentResult } from './types';
 
 /*
- * Optional AI via Google Gemini's free tier (no card needed): set GEMINI_API_KEY in Vercel.
- * Without a key everything still works: certificates are read by free OCR in the browser and
- * the About text uses the standard template.
+ * Optional AI writer for the About paragraph: an open-source model (Meta Llama 3.1 8B) on Groq's free plan.
+ * Set GROQ_API_KEY in Vercel to turn it on. Without a key, the standard About text is used.
  */
-const KEY = () => process.env.GEMINI_API_KEY;
-const MODEL = () => process.env.GEMINI_MODEL || 'gemini-flash-lite-latest';
-export const aiEnabled = () => Boolean(KEY());
+const KEY = () => process.env.GROQ_API_KEY;
+const MODEL = () => process.env.GROQ_MODEL || 'llama-3.1-8b-instant';
 
-async function gemini(parts: unknown[], system: string, json: boolean, temperature: number): Promise<string | null> {
+async function chat(system: string, user: string): Promise<string | null> {
   const key = KEY();
   if (!key) return null;
-  try {
-    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODEL()}:generateContent`, {
-      method: 'POST',
-      cache: 'no-store',
-      headers: { 'content-type': 'application/json', 'x-goog-api-key': key },
-      signal: AbortSignal.timeout(20000),
-      body: JSON.stringify({
-        systemInstruction: { parts: [{ text: system }] },
-        contents: [{ role: 'user', parts }],
-        generationConfig: { temperature, ...(json ? { responseMimeType: 'application/json' } : {}) },
-      }),
-    });
-    if (!res.ok) {
-      console.error('Gemini error', res.status, (await res.text()).slice(0, 500));
-      return null;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        cache: 'no-store',
+        headers: { 'content-type': 'application/json', authorization: `Bearer ${key}` },
+        signal: AbortSignal.timeout(15000),
+        body: JSON.stringify({
+          model: MODEL(),
+          temperature: 0.4,
+          max_tokens: 300,
+          messages: [
+            { role: 'system', content: system },
+            { role: 'user', content: user },
+          ],
+        }),
+      });
+      if (res.ok) {
+        const data = (await res.json()) as { choices?: { message?: { content?: string } }[] };
+        return data.choices?.[0]?.message?.content?.trim() || null;
+      }
+      console.error('Groq error', res.status, (await res.text()).slice(0, 300));
+      if (res.status !== 429 && res.status < 500) return null; // only retry rate limits and server errors
+    } catch (e) {
+      console.error('Groq request failed', e);
     }
-    const data = (await res.json()) as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
-    return data.candidates?.[0]?.content?.parts?.map((p) => p.text ?? '').join('').trim() || null;
-  } catch (e) {
-    console.error('Gemini request failed', e);
-    return null;
+    await new Promise((r) => setTimeout(r, 1500));
   }
-}
-
-const certSchema = z.object({
-  isCertificate: z.boolean().catch(true),
-  playerName: z.string().catch(''),
-  event: z.string().catch(''),
-  place: z.string().catch(''),
-  year: z.string().catch(''),
-  category: z.string().catch(''),
-  timeControl: z.string().catch(''),
-  rank: z.string().catch(''),
-  points: z.string().catch(''),
-  rounds: z.string().catch(''),
-});
-export type CertReading = z.infer<typeof certSchema>;
-
-export async function readCertificateImage(jpeg: Buffer): Promise<CertReading | null> {
-  const out = await gemini(
-    [
-      { text: 'Read this chess certificate.' },
-      { inline_data: { mime_type: 'image/jpeg', data: jpeg.toString('base64') } },
-    ],
-    'Extract only what is printed on the certificate. Never guess; use "" when something is not printed. ' +
-      'Reply with JSON: {"isCertificate": boolean, "playerName": string, "event": string (full tournament name in Title Case, e.g. "Western Asian Youth Chess Championship 2026"), ' +
-      '"place": string (city), "year": string (4 digits), "category": string (e.g. "U-10 Girls"), "timeControl": "Classical"|"Rapid"|"Blitz"|"", ' +
-      '"rank": string (e.g. "41st"), "points": string (use ½ for halves, e.g. "4½"), "rounds": string (e.g. "9" from "out of 9")}',
-    true,
-    0,
-  );
-  if (!out) return null;
-  try {
-    return certSchema.parse(JSON.parse(out));
-  } catch {
-    return null;
-  }
+  return null;
 }
 
 /** A short, warm About paragraph written only from the facts on the page. Returns null without a key or on error. */
 export async function writeBio(a: Achiever, other: OtherRating[], results: TournamentResult[], certTitles: string[]): Promise<string | null> {
-  if (!aiEnabled()) return null;
+  if (!KEY()) return null;
+  const first = a.full_name.trim().split(/\s+/)[0];
   const ratings = [
     ['Standard', a.fide_standard],
     ['Rapid', a.fide_rapid],
     ['Blitz', a.fide_blitz],
   ].filter((r) => typeof r[1] === 'number' && (r[1] as number) >= 1000);
-  const facts = {
-    name: a.full_name,
-    fideId: a.fide_id,
-    fideRatings: Object.fromEntries(ratings),
-    otherRatings: other.map((o) => `${o.label}: ${o.value}`),
-    tournaments: results.map((r) => `${r.year} · ${r.event} · ${r.result}`),
-    certificates: certTitles,
-  };
-  const text = await gemini(
-    [{ text: JSON.stringify(facts) }],
+  const facts = [
+    `Name: ${a.full_name}`,
+    a.fide_id ? `Has a FIDE ID (plays FIDE-rated chess)` : '',
+    ratings.length ? `FIDE ratings: ${ratings.map(([k, v]) => `${k} ${v}`).join(', ')}` : 'No FIDE ratings given',
+    other.length ? `Other ratings: ${other.map((o) => `${o.label} ${o.value}`).join('; ')}` : '',
+    results.length ? `Tournament results:\n${results.map((r) => `- ${r.year}: ${r.event} — ${r.result}`).join('\n')}` : 'No tournament results given',
+    certTitles.length ? `Certificates on the page: ${certTitles.join('; ')}` : '',
+  ]
+    .filter(Boolean)
+    .join('\n');
+  const text = await chat(
     'You write the short "About" paragraph on a young chess player\'s public profile page, shared by their family. ' +
-      'Use ONLY the facts given. Never invent wins, titles, coaches, schools, ages, hometowns, personality traits or future plans. ' +
-      'Do not use he/she pronouns; use the first name or "they". No contact details. ' +
-      'Write 3 to 4 warm, plain-English sentences (max 90 words) for family, coaches and friends. ' +
-      'Mention the FIDE ratings and the most notable tournaments naturally; summarise many results rather than listing them all. ' +
-      'Be honest about results: a placing like 42nd means "competed", not "won". No headings, quotes, lists or emojis. Reply with the paragraph only.',
-    false,
-    0.4,
+      'Use ONLY the facts given. Never invent wins, titles, coaches, schools, ages, hometowns, feelings, personality traits or future plans. ' +
+      `Do not use he/she/his/her; use "${first}" or "they". No contact details. ` +
+      'Write 3 to 4 warm, plain-English sentences, at most 90 words, for family, coaches and friends. ' +
+      'Mention the FIDE ratings and the main tournaments naturally; summarise rather than listing every result. ' +
+      'Be honest: a placing like 42nd means they competed, not that they won. ' +
+      'Reply with the paragraph only: no title, no quotes, no lists, no emojis.',
+    facts,
   );
   if (!text) return null;
-  const t = text.replace(/^["'\s]+|["'\s]+$/g, '');
+  const t = text.replace(/^["'\s]+|["'\s]+$/g, '').replace(/\s+/g, ' ');
+  // Safety net: reject anything that slips in pronouns or numbers that are not in the facts.
+  if (/\b(he|she|his|her|him)\b/i.test(t)) return null;
+  const nums: string[] = t.match(/\d+/g) ?? [];
+  if (nums.some((n) => !facts.includes(n))) return null;
   return t.length > 20 ? t.slice(0, 900) : null;
 }
