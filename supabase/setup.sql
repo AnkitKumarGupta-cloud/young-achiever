@@ -162,3 +162,10 @@ alter table public.achievers add column if not exists hero_y int not null defaul
 insert into public.profiles (id, username, role)
 select id, 'admin', 'admin' from auth.users where email = 'kishkishkish123@gmail.com'
 on conflict (id) do update set role = 'admin';
+
+-- 004: certificates live in the photos table with kind = 'certificate'.
+alter table public.photos add column if not exists kind text not null default 'photo'
+  check (kind in ('photo', 'certificate'));
+alter table public.photos drop constraint if exists photos_caption_check;
+alter table public.photos add constraint photos_caption_check
+  check (caption is null or char_length(caption) <= 160);

@@ -37,9 +37,9 @@ export default async function ParentPage() {
     );
   }
 
-  const { achiever: a, other, results, photos } = profile;
+  const { achiever: a, other, results, photos, certificates } = profile;
   const fullUrl = `${siteOrigin()}/achievers/${a.slug}`;
-  const done = [a.full_name, photos.length, a.fide_id, a.fide_standard ?? a.fide_rapid ?? a.fide_blitz ?? other.length, results.length];
+  const done = [a.full_name, photos.length, a.fide_id, a.fide_standard ?? a.fide_rapid ?? a.fide_blitz ?? other.length, results.length || certificates.length];
   const pct = Math.round((done.filter(Boolean).length / done.length) * 100);
   const live = a.published && !a.taken_down;
   const main = photos[0];
@@ -57,14 +57,15 @@ export default async function ParentPage() {
       <main className="pd-main" id="top">
         <section className="pd-banner">
           <h1>Let&rsquo;s tell your child&rsquo;s story.</h1>
-          <p>Add photos, FIDE ratings and tournament results, then press Publish. Your page goes live straight away.</p>
+          <p>Add photos, certificates, FIDE ratings and tournament results, then press Publish. Your page goes live straight away.</p>
         </section>
         <Dashboard
-          key={`${a.fide_standard}-${a.fide_rapid}-${a.fide_blitz}-${a.full_name}-${photos.map((p) => p.id).join(',')}`}
+          key={`${a.fide_standard}-${a.fide_rapid}-${a.fide_blitz}-${a.full_name}-${[...photos, ...certificates].map((p) => p.id).join(',')}`}
           achiever={a}
           other={other}
           results={results}
           photos={photos}
+          certificates={certificates}
           bioText={buildBio(a, other, results)}
           pct={pct}
           fullUrl={fullUrl}

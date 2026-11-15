@@ -28,6 +28,7 @@ export type LoadedProfile = {
   other: OtherRating[];
   results: TournamentResult[];
   photos: PhotoItem[];
+  certificates: PhotoItem[];
 };
 
 export type FormState = { error?: string; ok?: string } | undefined;

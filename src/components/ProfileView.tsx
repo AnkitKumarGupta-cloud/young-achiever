@@ -5,6 +5,7 @@ import { buildBio, heroPos } from '@/lib/bio';
 import { siteOrigin } from '@/lib/site';
 import { Crown } from '@/components/icons';
 import CopyLink from '@/components/CopyLink';
+import CertGallery from '@/components/CertGallery';
 
 /**
  * Shared by the public page, the admin preview and the parent preview. Shows only what the parent
@@ -12,7 +13,7 @@ import CopyLink from '@/components/CopyLink';
  * By design there is nothing (and nothing in the database) for contact details, address, school or ID documents.
  */
 export default function ProfileView({ profile }: { profile: LoadedProfile }) {
-  const { achiever: a, other, results, photos } = profile;
+  const { achiever: a, other, results, photos, certificates } = profile;
   const pos = heroPos(a);
   const bg = (url: string, p = true): CSSProperties => ({
     backgroundImage: `url("${url}")`,
@@ -32,6 +33,7 @@ export default function ProfileView({ profile }: { profile: LoadedProfile }) {
 
   const highlights: { n: number; l: string }[] = [];
   if (results.length) highlights.push({ n: results.length, l: 'Results' });
+  if (certificates.length) highlights.push({ n: certificates.length, l: 'Certificates' });
   if (photos.length > 1) highlights.push({ n: photos.length, l: 'Photos' });
 
   return (
@@ -115,6 +117,13 @@ export default function ProfileView({ profile }: { profile: LoadedProfile }) {
                   </li>
                 ))}
               </ol>
+            </section>
+          )}
+
+          {certificates.length > 0 && (
+            <section>
+              <h2 className="sec">Certificates</h2>
+              <CertGallery items={certificates} name={a.full_name} />
             </section>
           )}
 

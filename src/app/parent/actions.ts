@@ -10,6 +10,7 @@ import { siteOrigin } from '@/lib/site';
 import type { FormState } from '@/lib/types';
 
 const MAX_PHOTOS = 8;
+const MAX_CERTS = 12;
 const MAX_ROWS = 50;
 
 const optInt = (label: string) =>
@@ -119,33 +120,47 @@ const ALLOWED = new Set(['image/jpeg', 'image/png', 'image/webp']);
 export async function uploadPhoto(_prev: FormState, formData: FormData): Promise<FormState> {
   const me = await requireParent();
   const sb = supabaseServer();
+  const cert = str(formData, 'kind') === 'certificate';
+  const word = cert ? 'certificate' : 'photo';
+  const limit = cert ? MAX_CERTS : MAX_PHOTOS;
   const files = formData.getAll('photo').filter((f): f is File => f instanceof File && f.size > 0);
-  if (!files.length) return { error: 'Choose a photo first.' };
+  const captions = formData.getAll('caption').map((c) => String(c).trim().slice(0, 160));
+  if (!files.length) return { error: `Choose a ${word} first.` };
 
   const { data: ach } = await sb.from('achievers').select('id').eq('owner_id', me.id).maybeSingle();
   if (!ach) return { error: 'No page found for this account.' };
 
-  const { count } = await sb.from('photos').select('id', { count: 'exact', head: true }).eq('achiever_id', ach.id);
+  // Count only this kind. Before migration 004 there is no kind column: photos still work, certificates can't be saved yet.
+  const counted = await sb.from('photos').select('id', { count: 'exact', head: true }).eq('achiever_id', ach.id).eq('kind', cert ? 'certificate' : 'photo');
+  const hasKind = !counted.error;
+  let count = counted.count;
+  if (!hasKind) {
+    if (cert) return { error: 'Certificates need a quick database update first. Please ask the administrator.' };
+    const plain = await sb.from('photos').select('id', { count: 'exact', head: true }).eq('achiever_id', ach.id);
+    count = plain.count;
+  }
   let have = count ?? 0;
-  if (have >= MAX_PHOTOS) return { error: `You can add up to ${MAX_PHOTOS} photos. Remove one first.` };
+  if (have >= limit) return { error: `You can add up to ${limit} ${word}s. Remove one first.` };
 
   let added = 0;
   let skipped = 0;
   let lastError = '';
-  for (const file of files) {
-    if (have >= MAX_PHOTOS) {
+  for (const [i, file] of files.entries()) {
+    if (have >= limit) {
       skipped++;
       continue;
     }
-    if (!ALLOWED.has(file.type)) { lastError = 'Photos must be JPG, PNG or WebP.'; skipped++; continue; }
-    if (file.size > 6 * 1024 * 1024) { lastError = 'A photo was too large (max 6 MB).'; skipped++; continue; }
+    if (!ALLOWED.has(file.type)) { lastError = 'Files must be JPG, PNG or WebP images.'; skipped++; continue; }
+    if (file.size > 6 * 1024 * 1024) { lastError = 'A file was too large (max 6 MB).'; skipped++; continue; }
     let body: Buffer;
     try {
       // Re-encode: fixes orientation, caps size, and strips all metadata (including GPS location).
+      // Certificates keep more pixels so the small print stays readable.
+      const max = cert ? 2000 : 1600;
       body = await sharp(Buffer.from(await file.arrayBuffer()))
         .rotate()
-        .resize({ width: 1600, height: 1600, fit: 'inside', withoutEnlargement: true })
-        .jpeg({ quality: 85 })
+        .resize({ width: max, height: max, fit: 'inside', withoutEnlargement: true })
+        .jpeg({ quality: cert ? 88 : 85 })
         .toBuffer();
     } catch {
       lastError = 'A file could not be read as an image.';
@@ -155,10 +170,12 @@ export async function uploadPhoto(_prev: FormState, formData: FormData): Promise
     const path = `${ach.id}/${randomUUID()}.jpg`;
     const up = await sb.storage.from('photos').upload(path, body, { contentType: 'image/jpeg' });
     if (up.error) { lastError = 'Upload failed. Please try again.'; skipped++; continue; }
-    const { error } = await sb.from('photos').insert({ achiever_id: ach.id, path, caption: null, sort: have });
+    const row: Record<string, unknown> = { achiever_id: ach.id, path, caption: captions[i] || null, sort: have };
+    if (hasKind) row.kind = cert ? 'certificate' : 'photo';
+    const { error } = await sb.from('photos').insert(row);
     if (error) {
       await sb.storage.from('photos').remove([path]);
-      lastError = 'Could not save a photo.';
+      lastError = `Could not save a ${word}.`;
       skipped++;
       continue;
     }
@@ -166,8 +183,8 @@ export async function uploadPhoto(_prev: FormState, formData: FormData): Promise
     added++;
   }
   revalidatePath('/parent');
-  if (!added) return { error: lastError || 'No photos were added.' };
-  return { ok: `${added} photo${added > 1 ? 's' : ''} added.${skipped ? ` ${skipped} skipped${lastError ? ` (${lastError})` : ` (limit of ${MAX_PHOTOS} photos)`}.` : ''}` };
+  if (!added) return { error: lastError || `No ${word}s were added.` };
+  return { ok: `${added} ${word}${added > 1 ? 's' : ''} added.${skipped ? ` ${skipped} skipped${lastError ? ` (${lastError})` : ` (limit of ${limit})`}.` : ''}` };
 }
 
 export async function deletePhoto(formData: FormData) {

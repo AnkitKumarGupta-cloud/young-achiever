@@ -11,7 +11,7 @@ import type { Achiever, OtherRating, PhotoItem, TournamentResult } from '@/lib/t
 type OtherRow = { k: number; label: string; value: string };
 type ResultRow = { k: number; year: string; event: string; result: string };
 
-const TABS = ['Player', 'Photos', 'FIDE', 'Other ratings', 'Results'];
+const TABS = ['Player', 'Photos', 'Certificates', 'FIDE', 'Other ratings', 'Results'];
 
 function UploadButton() {
   const { pending } = useFormStatus();
@@ -280,11 +280,141 @@ function Photos({ photos, hero }: { photos: PhotoItem[]; hero: { x: number; y: n
   );
 }
 
+/** Shrinks a scan or photo of a certificate in the browser (no cropping) so uploads stay small. */
+function shrink(file: File, max = 2000): Promise<File> {
+  return new Promise((resolve) => {
+    const u = URL.createObjectURL(file);
+    const im = new Image();
+    im.onload = () => {
+      const s = Math.min(1, max / Math.max(im.naturalWidth, im.naturalHeight));
+      const c = document.createElement('canvas');
+      c.width = Math.round(im.naturalWidth * s);
+      c.height = Math.round(im.naturalHeight * s);
+      const ctx = c.getContext('2d')!;
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, c.width, c.height);
+      ctx.drawImage(im, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(u);
+      c.toBlob((b) => resolve(b ? new File([b], 'certificate.jpg', { type: 'image/jpeg' }) : file), 'image/jpeg', 0.9);
+    };
+    im.onerror = () => {
+      URL.revokeObjectURL(u);
+      resolve(file);
+    };
+    im.src = u;
+  });
+}
+
+function Certificates({ items }: { items: PhotoItem[] }) {
+  const [ready, setReady] = useState<{ file: File; url: string; title: string }[]>([]);
+  const [msg, setMsg] = useState<{ error?: string; ok?: string }>({});
+  const [busy, setBusy] = useState(false);
+
+  async function upload() {
+    if (!ready.length) return setMsg({ error: 'Choose a certificate first.' });
+    setBusy(true);
+    setMsg({});
+    let added = 0;
+    let error = '';
+    // One request per certificate keeps each upload well under the hosting size limit.
+    for (const r of ready) {
+      const fd = new FormData();
+      fd.append('kind', 'certificate');
+      fd.append('photo', r.file);
+      fd.append('caption', r.title);
+      const res = await uploadPhoto(undefined, fd);
+      if (res?.error) error = res.error;
+      else added++;
+    }
+    ready.forEach((r) => URL.revokeObjectURL(r.url));
+    setReady([]);
+    setBusy(false);
+    setMsg(error ? { error: added ? `${added} added. ${error}` : error } : { ok: `${added} certificate${added > 1 ? 's' : ''} added.` });
+  }
+
+  return (
+    <div>
+      <h2>Certificates</h2>
+      <p className="muted">
+        Add certificates from tournaments. They are shown whole, never cropped, and visitors can tap one to read it.
+        Give each a short title, for example &ldquo;Western Asian Youth Championship 2026 &middot; Rapid&rdquo;. Up to 12.
+      </p>
+      {items.length > 0 && (
+        <div className="pd-certs">
+          {items.map((c) => (
+            <div key={c.id} className="pd-cert">
+              <div className="pd-cert-i" style={{ backgroundImage: `url("${c.url}")` }} />
+              <b>{c.caption || 'Certificate'}</b>
+              <form action={deletePhoto}>
+                <input type="hidden" name="id" value={c.id} />
+                <button className="btn-sm danger">Remove</button>
+              </form>
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="grid">
+        <div className="field">
+          <label htmlFor="cert">Choose certificates</label>
+          <input
+            id="cert"
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            multiple
+            disabled={busy}
+            onChange={async (e) => {
+              const fl = Array.from(e.target.files ?? []);
+              e.target.value = '';
+              const shrunk = await Promise.all(fl.map((f) => shrink(f)));
+              setReady((r) => [...r, ...shrunk.map((f) => ({ file: f, url: URL.createObjectURL(f), title: '' }))]);
+            }}
+          />
+          <p className="muted" style={{ margin: '6px 0 0' }}>Got a PDF or Word file? Take a screenshot of the certificate and add that.</p>
+        </div>
+        {ready.map((r, i) => (
+          <div key={r.url} className="pd-cready">
+            <div className="pd-cert-i" style={{ backgroundImage: `url("${r.url}")` }} />
+            <div className="field">
+              <label htmlFor={`ct${i}`}>Title</label>
+              <input
+                id={`ct${i}`}
+                type="text"
+                maxLength={160}
+                value={r.title}
+                placeholder="e.g. Western Asian Youth Championship 2026 · Rapid"
+                onChange={(e) => setReady((all) => all.map((x, j) => (j === i ? { ...x, title: e.target.value } : x)))}
+              />
+            </div>
+            <button
+              type="button"
+              className="btn-sm"
+              onClick={() => {
+                URL.revokeObjectURL(r.url);
+                setReady((all) => all.filter((_, j) => j !== i));
+              }}
+            >
+              Remove
+            </button>
+          </div>
+        ))}
+        {msg.error && <p className="error" style={{ margin: 0 }}>{msg.error}</p>}
+        {msg.ok && <p className="ok" style={{ margin: 0 }}>{msg.ok}</p>}
+        <div>
+          <button type="button" className="primary" onClick={upload} disabled={busy || !ready.length}>
+            {busy ? 'Uploading…' : `Add ${ready.length > 1 ? `${ready.length} certificates` : 'certificate'}`}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Dashboard({
   achiever,
   other,
   results,
   photos,
+  certificates,
   bioText,
   pct,
   fullUrl,
@@ -293,6 +423,7 @@ export default function Dashboard({
   other: OtherRating[];
   results: TournamentResult[];
   photos: PhotoItem[];
+  certificates: PhotoItem[];
   bioText: string;
   pct: number;
   fullUrl: string;
@@ -383,7 +514,7 @@ export default function Dashboard({
               </div>
             </div>
 
-            <div className="pd-panel" hidden={tab !== 2}>
+            <div className="pd-panel" hidden={tab !== 3}>
               <h2>FIDE</h2>
               <p className="muted">Enter the ratings yourself. Anyone can check them at ratings.fide.com using the FIDE ID.</p>
               <div className="grid g4">
@@ -394,7 +525,7 @@ export default function Dashboard({
               </div>
             </div>
 
-            <div className="pd-panel" hidden={tab !== 3}>
+            <div className="pd-panel" hidden={tab !== 4}>
               <h2>Other ratings</h2>
               <p className="muted">For example a state or national federation rating.</p>
               {others.map((r) => (
@@ -407,7 +538,7 @@ export default function Dashboard({
               <button type="button" className="btn-sm" onClick={() => { setOthers([...others, { k: nextKey, label: '', value: '' }]); setNextKey(nextKey + 1); }}>+ Add rating</button>
             </div>
 
-            <div className="pd-panel" hidden={tab !== 4}>
+            <div className="pd-panel" hidden={tab !== 5}>
               <h2>Tournament results</h2>
               <p className="muted">Only enter results you can stand behind. They are shown as submitted by you.</p>
               {rows.map((r) => (
@@ -424,6 +555,10 @@ export default function Dashboard({
 
           <div className="pd-panel" hidden={tab !== 1}>
             <Photos photos={photos} hero={pos} />
+          </div>
+
+          <div className="pd-panel" hidden={tab !== 2}>
+            <Certificates items={certificates} />
           </div>
 
           <div className="pd-foot">
