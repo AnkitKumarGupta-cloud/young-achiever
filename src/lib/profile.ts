@@ -20,6 +20,8 @@ export async function loadProfile(sb: SupabaseClient, by: By): Promise<LoadedPro
     loadImages(sb, a.id),
   ]);
 
+  if (o.error) console.error('other_ratings load failed', o.error);
+  if (r.error) console.error('tournament_results load failed', r.error);
   const rows = p;
   let photos: PhotoItem[] = [];
   let certificates: PhotoItem[] = [];
