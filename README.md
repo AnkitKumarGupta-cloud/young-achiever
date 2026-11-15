@@ -37,3 +37,5 @@ Parents showcase a young player's achievements on a shareable page. Next.js 14 (
 - Rate-limit `/login` (Supabase has built-in auth rate limits; consider adding Cloudflare/Vercel protection).
 - Saving child rows is delete-then-insert, not one transaction. A Postgres function (RPC) would make it atomic.
 - Parent photos are not moderated. Since they are photos of children, consider an admin review habit via the preview page.
+
+Deploys automatically to Vercel from the `main` branch.
