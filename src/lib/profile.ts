@@ -1,6 +1,5 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { staticCerts } from './staticCerts';
 import type { Achiever, LoadedProfile, OtherRating, PhotoItem, TournamentResult } from './types';
 
 type By = { slug?: string; id?: string; ownerId?: string };
@@ -42,7 +41,7 @@ export async function loadProfile(sb: SupabaseClient, by: By): Promise<LoadedPro
     other: (o.data ?? []) as OtherRating[],
     results: (r.data ?? []) as TournamentResult[],
     photos,
-    certificates: [...certificates, ...staticCerts(a.slug)],
+    certificates,
   };
 }
 
