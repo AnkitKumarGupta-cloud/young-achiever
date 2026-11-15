@@ -6,6 +6,7 @@ import { useFormState, useFormStatus } from 'react-dom';
 import { deletePhoto, readCertificate, saveFocus, saveProfile, setMainPhoto, uploadPhoto } from './actions';
 import CopyLink from '@/components/CopyLink';
 import { EyeIcon } from '@/components/icons';
+import { readCertificateOcr } from '@/lib/certOcr';
 import type { Achiever, CertGuess, OtherRating, PhotoItem, TournamentResult } from '@/lib/types';
 
 type OtherRow = { k: number; label: string; value: string };
@@ -383,7 +384,8 @@ function Certificates({ items, register, onDetected }: { items: PhotoItem[]; reg
               for (const item of added) {
                 const fd = new FormData();
                 fd.append('photo', item.file);
-                const g = await readCertificate(fd).catch(() => null);
+                const first = await readCertificate(fd).catch(() => 'ocr' as const);
+                const g = first === 'ocr' ? await readCertificateOcr(item.file) : first;
                 const isNew = g ? onDetected(g) : false;
                 const note = !g
                   ? 'Could not read this certificate automatically. Type the title, and add the result in the Results tab.'
@@ -544,7 +546,7 @@ export default function Dashboard({
                   <label>About text</label>
                   <div className="bio-prev">{bioText}</div>
                   <p className="muted" style={{ margin: '8px 0 0' }}>
-                    Written for you automatically by AI from the details you enter (ratings, results, certificates). It only uses
+                    Written for you automatically from the details you enter (ratings, results, certificates). It only uses
                     those facts and never adds personal details. It updates each time you save.
                   </p>
                 </div>

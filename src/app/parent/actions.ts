@@ -8,7 +8,7 @@ import { requireParent } from '@/lib/auth';
 import { supabaseServer } from '@/lib/supabase/server';
 import { siteOrigin } from '@/lib/site';
 import type { Achiever, CertGuess, FormState } from '@/lib/types';
-import { readCertificateImage, writeBio } from '@/lib/ai';
+import { aiEnabled, readCertificateImage, writeBio } from '@/lib/ai';
 
 const MAX_PHOTOS = 8;
 const MAX_CERTS = 12;
@@ -241,8 +241,9 @@ export async function saveFocus(x: number, y: number): Promise<FormState> {
 }
 
 /** Reads a certificate with AI and suggests its title and tournament result. Nothing is saved here. */
-export async function readCertificate(formData: FormData): Promise<CertGuess | null> {
+export async function readCertificate(formData: FormData): Promise<CertGuess | 'ocr' | null> {
   const me = await requireParent();
+  if (!aiEnabled()) return 'ocr'; // no AI key: the browser reads it with free OCR instead
   const file = formData.get('photo');
   if (!(file instanceof File) || !ALLOWED.has(file.type) || file.size > 6 * 1024 * 1024) return null;
   const sb = supabaseServer();
@@ -254,7 +255,8 @@ export async function readCertificate(formData: FormData): Promise<CertGuess | n
     return null;
   }
   const c = await readCertificateImage(jpeg);
-  if (!c || !c.isCertificate || !c.event.trim()) return null;
+  if (!c) return 'ocr'; // AI failed: fall back to OCR in the browser
+  if (!c.isCertificate || !c.event.trim()) return null;
   const event = c.place && !c.event.toLowerCase().includes(c.place.toLowerCase()) ? `${c.event}, ${c.place}` : c.event;
   const section = [c.category, c.timeControl].map((x) => x.trim()).filter(Boolean).join(' ');
   const pts = c.points.trim() ? (c.rounds.trim() ? `${c.points} / ${c.rounds} points` : `${c.points} point${c.points === '1' ? '' : 's'}`) : '';
