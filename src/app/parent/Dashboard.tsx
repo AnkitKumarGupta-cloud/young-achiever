@@ -345,10 +345,14 @@ function Certificates({ items }: { items: PhotoItem[] }) {
             <div key={c.id} className="pd-cert">
               <div className="pd-cert-i" style={{ backgroundImage: `url("${c.url}")` }} />
               <b>{c.caption || 'Certificate'}</b>
-              <form action={deletePhoto}>
-                <input type="hidden" name="id" value={c.id} />
-                <button className="btn-sm danger">Remove</button>
-              </form>
+              {c.id.startsWith('static-') ? (
+                <span className="muted">Added by the administrator</span>
+              ) : (
+                <form action={deletePhoto}>
+                  <input type="hidden" name="id" value={c.id} />
+                  <button className="btn-sm danger">Remove</button>
+                </form>
+              )}
             </div>
           ))}
         </div>
