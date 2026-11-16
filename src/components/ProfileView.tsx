@@ -96,6 +96,7 @@ export default function ProfileView({ profile }: { profile: LoadedProfile }) {
               {firstName}
               {lastParts.length > 0 && <span> {lastParts.join(' ')}</span>}
             </h1>
+            <div className="ap-chips">
             {a.fide_id && (
               <a
                 className="ap-fide"
@@ -106,6 +107,13 @@ export default function ProfileView({ profile }: { profile: LoadedProfile }) {
                 <ShieldIcon width={16} height={16} /> FIDE ID {a.fide_id} <span aria-hidden="true">&#8599;</span>
               </a>
             )}
+            {a.fide_synced_at && ratings.length > 0 && (
+              <p className="ap-verified">
+                Ratings from the official FIDE list · updated{' '}
+                {new Date(a.fide_synced_at).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })}
+              </p>
+            )}
+            </div>
             {stats.length > 0 && (
               <dl className={`ap-stats n${stats.length}`}>
                 {stats.map((s) => (
