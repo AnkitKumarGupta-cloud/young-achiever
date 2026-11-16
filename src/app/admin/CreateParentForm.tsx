@@ -38,6 +38,10 @@ export default function CreateParentForm() {
           <input id="username" name="username" type="text" autoCapitalize="none" required />
         </div>
         <div className="field">
+          <label htmlFor="fide_id">FIDE ID (optional)</label>
+          <input id="fide_id" name="fide_id" type="text" inputMode="numeric" placeholder="Ratings sync automatically" />
+        </div>
+        <div className="field">
           <label htmlFor="password">Password</label>
           <input id="password" name="password" type="text" ref={pw} autoComplete="off" required minLength={8} />
         </div>

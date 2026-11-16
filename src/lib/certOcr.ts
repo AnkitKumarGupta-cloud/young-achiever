@@ -44,18 +44,35 @@ function canvases(im: HTMLImageElement) {
   return [a, b] as const;
 }
 
+async function ocrText(file: File): Promise<string> {
+  const im = await loadImage(file);
+  const [a, b] = canvases(im);
+  URL.revokeObjectURL(im.src);
+  const w = await getWorker();
+  await w.setParameters({ tessedit_pageseg_mode: '3' as never });
+  const one = await w.recognize(a);
+  await w.setParameters({ tessedit_pageseg_mode: '11' as never });
+  const two = await w.recognize(b);
+  return `${one.data.text}\n${two.data.text}`;
+}
+
 export async function readCertificateOcr(file: File): Promise<CertGuess | null> {
   try {
-    const im = await loadImage(file);
-    const [a, b] = canvases(im);
-    URL.revokeObjectURL(im.src);
-    const w = await getWorker();
-    await w.setParameters({ tessedit_pageseg_mode: '3' as never });
-    const one = await w.recognize(a);
-    await w.setParameters({ tessedit_pageseg_mode: '11' as never });
-    const two = await w.recognize(b);
-    return parseCertificate(`${one.data.text}\n${two.data.text}`);
+    return parseCertificate(await ocrText(file));
   } catch {
     return null;
+  }
+}
+
+/** Reads an image and decides whether it is a certificate (and what it says) or an ordinary photo. */
+export async function classifyImage(file: File): Promise<{ isCert: boolean; guess: CertGuess | null }> {
+  try {
+    const text = await ocrText(file);
+    const guess = parseCertificate(text);
+    const words = (text.match(/[A-Za-z]{3,}/g) ?? []).length;
+    const certish = /certificate|certify|participat|championship|tournament|secured|awarded|arbiter|organi[sz]er/i.test(text);
+    return { isCert: Boolean(guess) || (certish && words > 15), guess };
+  } catch {
+    return { isCert: false, guess: null };
   }
 }

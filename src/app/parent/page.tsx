@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { requireParent } from '@/lib/auth';
 import { supabaseServer } from '@/lib/supabase/server';
 import { loadProfile } from '@/lib/profile';
+import { FIDE_MAX_AGE_MS, refreshBio, syncFide } from '@/lib/sync';
 import { buildBio } from '@/lib/bio';
 import { siteOrigin } from '@/lib/site';
 import { logout } from '@/app/login/actions';
@@ -13,7 +14,14 @@ export const dynamic = 'force-dynamic';
 export default async function ParentPage() {
   const me = await requireParent();
   // RLS guarantees this can only ever return this parent's own child.
-  const profile = await loadProfile(supabaseServer(), { ownerId: me.id });
+  const sb = supabaseServer();
+  // Keep ratings fresh: if FIDE was last checked over a day ago, check again now.
+  const { data: own } = await sb.from('achievers').select('id, fide_id, full_name, fide_synced_at').eq('owner_id', me.id).maybeSingle();
+  if (own?.fide_id && (!own.fide_synced_at || Date.now() - new Date(own.fide_synced_at).getTime() > FIDE_MAX_AGE_MS)) {
+    const r = await syncFide(sb, own);
+    if (r.changed) await refreshBio(sb, own.id);
+  }
+  const profile = await loadProfile(sb, { ownerId: me.id });
 
   const top = (
     <header className="pd-top">

@@ -3,10 +3,10 @@
 import Link from 'next/link';
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { useFormState, useFormStatus } from 'react-dom';
-import { deletePhoto, saveFocus, saveProfile, setMainPhoto, uploadPhoto } from './actions';
+import { addResults, deletePhoto, saveFocus, saveProfile, setMainPhoto, syncMyFide, uploadPhoto } from './actions';
 import CopyLink from '@/components/CopyLink';
 import { EyeIcon } from '@/components/icons';
-import { readCertificateOcr } from '@/lib/certOcr';
+import { classifyImage, readCertificateOcr } from '@/lib/certOcr';
 import type { Achiever, CertGuess, OtherRating, PhotoItem, TournamentResult } from '@/lib/types';
 
 type OtherRow = { k: number; label: string; value: string };
@@ -306,7 +306,7 @@ function shrink(file: File, max = 2000): Promise<File> {
   });
 }
 
-function Certificates({ items, register, onDetected }: { items: PhotoItem[]; register: (fn: () => Promise<void>) => void; onDetected: (g: CertGuess) => boolean }) {
+function Certificates({ items, register }: { items: PhotoItem[]; register: (fn: () => Promise<void>) => void }) {
   const [ready, setReady] = useState<{ file: File; url: string; title: string; reading?: boolean; note?: string }[]>([]);
   const [msg, setMsg] = useState<{ error?: string; ok?: string }>({});
   const [busy, setBusy] = useState(false);
@@ -383,11 +383,14 @@ function Certificates({ items, register, onDetected }: { items: PhotoItem[]; reg
               // Read each certificate and fill in the title and a tournament result automatically.
               for (const item of added) {
                 const g = await readCertificateOcr(item.file);
-                const isNew = g ? onDetected(g) : false;
+                const saved = g ? await addResults([g]).catch(() => null) : null;
                 const note = !g
-                  ? 'Could not read this certificate automatically. Type the title, and add the result in the Results tab.'
-                  : (g.warning ? `${g.warning} ` : '') +
-                    (isNew ? `Added to Results: ${g.year} · ${g.event} · ${g.result}.` : 'This tournament is already in your Results.');
+                  ? 'Could not read this certificate automatically. You can still add it; type a title if you like.'
+                  : saved?.error
+                    ? saved.error
+                    : saved?.ok === 'Already on the page.'
+                      ? 'This tournament is already in your Results.'
+                      : `Added to Results: ${g.year} · ${g.event} · ${g.result}.`;
                 setReady((all) => all.map((x) => (x.url === item.url ? { ...x, reading: false, note, title: x.title || g?.title || '' } : x)));
               }
             }}
@@ -429,6 +432,129 @@ function Certificates({ items, register, onDetected }: { items: PhotoItem[]; reg
   );
 }
 
+function FideStatus({ a }: { a: Achiever }) {
+  const [msg, setMsg] = useState<{ ok?: string; error?: string }>({});
+  const [pending, start] = useTransition();
+  const show = (v: number | null) => (typeof v === 'number' && v >= 1000 ? String(v) : 'Not rated');
+  const when = a.fide_synced_at ? new Date(a.fide_synced_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+  return (
+    <div className="pd-fide">
+      <div className="pd-fide-r">
+        {(
+          [
+            ['Standard', a.fide_standard],
+            ['Rapid', a.fide_rapid],
+            ['Blitz', a.fide_blitz],
+          ] as const
+        ).map(([k, v]) => (
+          <div key={k}>
+            <span className="label-sm">{k}</span>
+            <b>{show(v)}</b>
+          </div>
+        ))}
+      </div>
+      <p className="muted" style={{ margin: 0 }}>
+        {a.fide_id ? (when ? `Last updated from FIDE on ${when}.` : 'Not fetched from FIDE yet.') : 'Add the FIDE ID above, then press Save draft.'}
+      </p>
+      {a.fide_id && (
+        <div>
+          <button
+            type="button"
+            className="btn-sm"
+            disabled={pending}
+            onClick={() => start(async () => setMsg((await syncMyFide()) ?? {}))}
+          >
+            {pending ? 'Checking FIDE…' : 'Update from FIDE now'}
+          </button>
+        </div>
+      )}
+      {msg.ok && <p className="ok" style={{ margin: 0 }}>{msg.ok}</p>}
+      {msg.error && <p className="error" style={{ margin: 0 }}>{msg.error}</p>}
+    </div>
+  );
+}
+
+/** One place to drop everything: each image is read, sorted into certificate or photo, and saved straight away. */
+function QuickAdd() {
+  const [items, setItems] = useState<{ id: string; name: string; status: string; state: 'busy' | 'ok' | 'err' }[]>([]);
+  const [drag, setDrag] = useState(false);
+  const busy = items.some((i) => i.state === 'busy');
+  const set = (id: string, status: string, state: 'busy' | 'ok' | 'err') =>
+    setItems((all) => all.map((x) => (x.id === id ? { ...x, status, state } : x)));
+
+  async function handle(files: File[]) {
+    const list = files.filter((f) => /^image\/(jpeg|png|webp)$/.test(f.type));
+    const added = list.map((f, i) => ({ id: `${Date.now()}-${i}`, name: f.name, status: 'Waiting…', state: 'busy' as const }));
+    if (files.length > list.length) added.push({ id: `${Date.now()}-x`, name: `${files.length - list.length} file(s)`, status: 'Only JPG, PNG or WebP images can be added. For a PDF, take a screenshot.', state: 'err' as never });
+    setItems((all) => [...added, ...all]);
+    for (const [i, file] of list.entries()) {
+      const id = added[i].id;
+      set(id, 'Reading…', 'busy');
+      const small = await shrink(file);
+      const { isCert, guess } = await classifyImage(small);
+      const fd = new FormData();
+      fd.append('kind', isCert ? 'certificate' : 'photo');
+      fd.append('photo', small);
+      if (isCert && guess?.title) fd.append('caption', guess.title);
+      set(id, isCert ? 'Saving certificate…' : 'Saving photo…', 'busy');
+      const up = await uploadPhoto(undefined, fd).catch(() => ({ error: 'Upload failed. Please try again.' }));
+      if (up?.error) {
+        set(id, up.error, 'err');
+        continue;
+      }
+      if (isCert && guess) {
+        const r = await addResults([guess]).catch(() => null);
+        set(id, r?.ok === 'Already on the page.' ? `Certificate added (${guess.title || 'tournament already listed'}).` : `Certificate added, result saved: ${guess.event} · ${guess.result}`, 'ok');
+      } else {
+        set(id, isCert ? 'Certificate added.' : 'Photo added.', 'ok');
+      }
+    }
+  }
+
+  return (
+    <section className="card pd-quick">
+      <div>
+        <h2>Add photos &amp; certificates</h2>
+        <p className="muted" style={{ margin: '4px 0 0' }}>
+          Just drop them here. We sort photos from certificates, read each certificate, add the tournament result, update the
+          ratings from FIDE and write the About text for you.
+        </p>
+      </div>
+      <label
+        className={`pd-drop${drag ? ' on' : ''}${busy ? ' busy' : ''}`}
+        onDragOver={(e) => { e.preventDefault(); setDrag(true); }}
+        onDragLeave={() => setDrag(false)}
+        onDrop={(e) => { e.preventDefault(); setDrag(false); if (!busy) handle(Array.from(e.dataTransfer.files)); }}
+      >
+        <input
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          multiple
+          disabled={busy}
+          onChange={(e) => {
+            const fl = Array.from(e.target.files ?? []);
+            e.target.value = '';
+            if (fl.length) handle(fl);
+          }}
+        />
+        <span className="pd-drop-i" aria-hidden="true">+</span>
+        <b>{busy ? 'Working on it…' : 'Choose photos or certificates'}</b>
+        <span className="muted">or drag them here · JPG, PNG or WebP</span>
+      </label>
+      {items.length > 0 && (
+        <ul className="pd-qlist">
+          {items.map((i) => (
+            <li key={i.id} className={i.state}>
+              <span>{i.name}</span>
+              <span>{i.status}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
 export default function Dashboard({
   achiever,
   other,
@@ -454,13 +580,15 @@ export default function Dashboard({
   const [nextKey, setNextKey] = useState(1000);
   const [others, setOthers] = useState<OtherRow[]>(other.map((o, i) => ({ k: i, label: o.label, value: o.value })));
   const [rows, setRows] = useState<ResultRow[]>(results.map((r, i) => ({ k: i, year: String(r.year), event: r.event, result: r.result })));
-  const num = (n: number | null) => (n === null ? '' : String(n));
   const live = a.published && !a.taken_down;
   const main = photos[0];
   const pos = { x: a.hero_x ?? 50, y: a.hero_y ?? 35 };
   const flushCerts = useRef<() => Promise<void>>(async () => {});
-  const rowsRef = useRef(rows);
-  rowsRef.current = rows;
+  const resultsKey = results.map((r) => r.id).join(',');
+  useEffect(() => {
+    setRows(results.map((r, i) => ({ k: i, year: String(r.year), event: r.event, result: r.result })));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resultsKey]);
   const [busy, setBusy] = useState(false);
   async function go(next: number) {
     setBusy(true);
@@ -471,6 +599,7 @@ export default function Dashboard({
 
   return (
     <>
+      <QuickAdd />
       <section className="pd-sum card">
         <div
           className={`pd-thumb${main ? '' : ' none'}`}
@@ -552,12 +681,15 @@ export default function Dashboard({
 
             <div className="pd-panel" hidden={tab !== 3}>
               <h2>FIDE</h2>
-              <p className="muted">Enter the ratings yourself. Anyone can check them at ratings.fide.com using the FIDE ID.</p>
-              <div className="grid g4">
-                <div className="field"><label htmlFor="fide_id">FIDE ID</label><input id="fide_id" name="fide_id" type="text" inputMode="numeric" defaultValue={a.fide_id ?? ''} /></div>
-                <div className="field"><label htmlFor="fide_standard">Standard</label><input id="fide_standard" name="fide_standard" type="number" min={0} max={3500} defaultValue={num(a.fide_standard)} /></div>
-                <div className="field"><label htmlFor="fide_rapid">Rapid</label><input id="fide_rapid" name="fide_rapid" type="number" min={0} max={3500} defaultValue={num(a.fide_rapid)} /></div>
-                <div className="field"><label htmlFor="fide_blitz">Blitz</label><input id="fide_blitz" name="fide_blitz" type="number" min={0} max={3500} defaultValue={num(a.fide_blitz)} /></div>
+              <p className="muted">
+                Ratings are fetched automatically from the official FIDE website every day. Just make sure the FIDE ID is right.
+              </p>
+              <div className="grid">
+                <div className="field" style={{ maxWidth: 280 }}>
+                  <label htmlFor="fide_id">FIDE ID</label>
+                  <input id="fide_id" name="fide_id" type="text" inputMode="numeric" defaultValue={a.fide_id ?? ''} placeholder="e.g. 374096774" />
+                </div>
+                <FideStatus a={a} />
               </div>
             </div>
 
@@ -594,18 +726,7 @@ export default function Dashboard({
           </div>
 
           <div className="pd-panel" hidden={tab !== 2}>
-            <Certificates
-              items={certificates}
-              register={(fn) => { flushCerts.current = fn; }}
-              onDetected={(g) => {
-                const same = (e: string) => e.trim().toLowerCase() === g.event.trim().toLowerCase();
-                if (rowsRef.current.some((x) => same(x.event))) return false;
-                const row = { k: Date.now() + Math.random(), year: g.year || String(new Date().getFullYear()), event: g.event, result: g.result };
-                rowsRef.current = [...rowsRef.current, row];
-                setRows(rowsRef.current);
-                return true;
-              }}
-            />
+            <Certificates items={certificates} register={(fn) => { flushCerts.current = fn; }} />
           </div>
 
           <div className="pd-foot">

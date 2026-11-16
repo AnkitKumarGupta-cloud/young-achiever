@@ -8,7 +8,7 @@ import { requireParent } from '@/lib/auth';
 import { supabaseServer } from '@/lib/supabase/server';
 import { siteOrigin } from '@/lib/site';
 import type { Achiever, FormState } from '@/lib/types';
-import { writeBio } from '@/lib/ai';
+import { refreshBio, syncFide } from '@/lib/sync';
 
 const MAX_PHOTOS = 8;
 const MAX_CERTS = 12;
@@ -45,7 +45,7 @@ export async function saveProfile(_prev: FormState, formData: FormData): Promise
   const sb = supabaseServer(); // acts as the parent; RLS limits everything to their own child
   const intent = str(formData, 'intent');
 
-  const { data: ach } = await sb.from('achievers').select('id, taken_down, slug').eq('owner_id', me.id).maybeSingle();
+  const { data: ach } = await sb.from('achievers').select('id, taken_down, slug, fide_id, full_name').eq('owner_id', me.id).maybeSingle();
   if (!ach) return { error: 'No page found for this account. Contact the administrator.' };
 
   const parsed = baseSchema.safeParse({
@@ -55,6 +55,8 @@ export async function saveProfile(_prev: FormState, formData: FormData): Promise
     fide_rapid: str(formData, 'fide_rapid'),
     fide_blitz: str(formData, 'fide_blitz'),
   });
+  // Ratings are normally synced from FIDE; only touch them if the form actually sent them.
+  const manualRatings = formData.has('fide_standard') || formData.has('fide_rapid') || formData.has('fide_blitz');
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
   // Other ratings: label + value
@@ -93,7 +95,8 @@ export async function saveProfile(_prev: FormState, formData: FormData): Promise
     return { error: 'This page was taken down by the administrator and can’t be published. Please contact them.' };
   }
 
-  const update: Record<string, unknown> = { ...parsed.data };
+  const { fide_standard, fide_rapid, fide_blitz, ...basics } = parsed.data;
+  const update: Record<string, unknown> = { ...basics, ...(manualRatings ? { fide_standard, fide_rapid, fide_blitz } : {}) };
   if (intent === 'publish') update.published = true;
   if (intent === 'unpublish') update.published = false;
 
@@ -113,20 +116,9 @@ export async function saveProfile(_prev: FormState, formData: FormData): Promise
     if (error) return { error: 'Could not save tournament results.' };
   }
 
-  // Rewrite the About paragraph from the saved facts (AI). If AI is unavailable, the page falls back to the standard text.
-  const [{ data: full }, { data: certs }] = await Promise.all([
-    sb.from('achievers').select('*').eq('id', ach.id).maybeSingle(),
-    sb.from('photos').select('caption').eq('achiever_id', ach.id).eq('kind', 'certificate'),
-  ]);
-  if (full) {
-    const bio = await writeBio(
-      full as Achiever,
-      other.map((o, i) => ({ id: String(i), label: o.label, value: o.value })),
-      results.map((r, i) => ({ id: String(i), year: r.year, event: r.event, result: r.result })),
-      (certs ?? []).map((c) => c.caption as string).filter(Boolean),
-    );
-    await sb.from('achievers').update({ bio: bio ?? '' }).eq('id', ach.id);
-  }
+  // A new or changed FIDE ID pulls ratings from FIDE straight away.
+  if (basics.fide_id && basics.fide_id !== ach.fide_id) await syncFide(sb, { id: ach.id, fide_id: basics.fide_id, full_name: basics.full_name });
+  await refreshBio(sb, ach.id);
 
   revalidatePath('/parent');
   if (intent === 'publish') return { ok: `Published. Your page is live at ${siteOrigin()}/achievers/${ach.slug}` };
@@ -201,6 +193,7 @@ export async function uploadPhoto(_prev: FormState, formData: FormData): Promise
     have++;
     added++;
   }
+  if (added && cert) await refreshBio(sb, ach.id);
   revalidatePath('/parent');
   if (!added) return { error: lastError || `No ${word}s were added.` };
   return { ok: `${added} ${word}${added > 1 ? 's' : ''} added.${skipped ? ` ${skipped} skipped${lastError ? ` (${lastError})` : ` (limit of ${limit})`}.` : ''}` };
@@ -240,3 +233,42 @@ export async function saveFocus(x: number, y: number): Promise<FormState> {
   return { ok: 'Saved.' };
 }
 
+
+/** Adds tournament results read from certificates (skips ones already on the page) and refreshes the About text. */
+export async function addResults(rows: { year: string; event: string; result: string }[]): Promise<FormState> {
+  const me = await requireParent();
+  const sb = supabaseServer();
+  const { data: ach } = await sb.from('achievers').select('id').eq('owner_id', me.id).maybeSingle();
+  if (!ach) return { error: 'No page found for this account.' };
+  const { data: existing } = await sb.from('tournament_results').select('event, sort').eq('achiever_id', ach.id);
+  const seen = new Set((existing ?? []).map((r) => String(r.event).trim().toLowerCase()));
+  let sort = Math.max(-1, ...(existing ?? []).map((r) => Number(r.sort) || 0)) + 1;
+  const fresh = [];
+  for (const r of rows.slice(0, 20)) {
+    const event = String(r.event ?? '').trim().slice(0, 160);
+    const result = String(r.result ?? '').trim().slice(0, 160) || 'Participated';
+    const year = Number(r.year) || new Date().getFullYear();
+    if (!event || seen.has(event.toLowerCase()) || year < 1990 || year > new Date().getFullYear() + 1) continue;
+    seen.add(event.toLowerCase());
+    fresh.push({ achiever_id: ach.id, year, event, result, sort: sort++ });
+  }
+  if (fresh.length) {
+    const { error } = await sb.from('tournament_results').insert(fresh);
+    if (error) return { error: 'Could not save the tournament results.' };
+    await refreshBio(sb, ach.id);
+  }
+  revalidatePath('/parent');
+  return { ok: fresh.length ? `${fresh.length} result${fresh.length > 1 ? 's' : ''} added.` : 'Already on the page.' };
+}
+
+/** Fetches the latest ratings from FIDE now. */
+export async function syncMyFide(): Promise<FormState> {
+  const me = await requireParent();
+  const sb = supabaseServer();
+  const { data: ach } = await sb.from('achievers').select('id, fide_id, full_name').eq('owner_id', me.id).maybeSingle();
+  if (!ach) return { error: 'No page found for this account.' };
+  const r = await syncFide(sb, ach);
+  if (r.ok) await refreshBio(sb, ach.id);
+  revalidatePath('/parent');
+  return r.ok ? { ok: r.message } : { error: r.message };
+}

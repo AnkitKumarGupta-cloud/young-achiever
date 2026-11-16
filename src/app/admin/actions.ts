@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache';
 import { requireAdmin } from '@/lib/auth';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { slugify, toEmail } from '@/lib/username';
+import { refreshBio, syncFide } from '@/lib/sync';
 import type { FormState } from '@/lib/types';
 
 const createSchema = z.object({
@@ -15,6 +16,11 @@ const createSchema = z.object({
     .toLowerCase()
     .regex(/^[a-z0-9._-]{3,30}$/, 'Username: 3-30 letters, numbers, dot, dash or underscore.'),
   password: z.string().min(8, 'Password must be at least 8 characters.').max(72),
+  fide_id: z
+    .string()
+    .trim()
+    .refine((v) => v === '' || /^[0-9]{3,10}$/.test(v), 'FIDE ID must be digits only.')
+    .transform((v) => (v === '' ? null : v)),
 });
 
 async function uniqueSlug(admin: ReturnType<typeof supabaseAdmin>, name: string) {
@@ -33,9 +39,10 @@ export async function createParent(_prev: FormState, formData: FormData): Promis
     child: formData.get('child'),
     username: formData.get('username'),
     password: formData.get('password'),
+    fide_id: String(formData.get('fide_id') ?? ''),
   });
   if (!parsed.success) return { error: parsed.error.issues[0].message };
-  const { child, username, password } = parsed.data;
+  const { child, username, password, fide_id } = parsed.data;
 
   const admin = supabaseAdmin();
   const { data: existing } = await admin.from('profiles').select('id').eq('username', username).maybeSingle();
@@ -53,14 +60,23 @@ export async function createParent(_prev: FormState, formData: FormData): Promis
   const slug = await uniqueSlug(admin, child);
   const { error: aErr } = pErr
     ? { error: pErr }
-    : await admin.from('achievers').insert({ owner_id: uid, slug, full_name: child });
+    : await admin.from('achievers').insert({ owner_id: uid, slug, full_name: child, fide_id });
   if (pErr || aErr) {
     await admin.auth.admin.deleteUser(uid); // cascades to profile
     return { error: 'Could not create the profile. Nothing was saved.' };
   }
 
+  let fideNote = '';
+  if (fide_id) {
+    const { data: created2 } = await admin.from('achievers').select('id').eq('slug', slug).maybeSingle();
+    if (created2) {
+      const r = await syncFide(admin, { id: created2.id, fide_id, full_name: child });
+      fideNote = ` ${r.message}`;
+      if (r.ok) await refreshBio(admin, created2.id);
+    }
+  }
   revalidatePath('/admin');
-  return { ok: `Created login "${username}" and page /achievers/${slug}. Share the username and password with the parent.` };
+  return { ok: `${fideNote ? '' : ''}Created login "${username}" and page /achievers/${slug}. Share the username and password with the parent.${fideNote}` };
 }
 
 export async function resetPassword(_prev: FormState, formData: FormData): Promise<FormState> {
