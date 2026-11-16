@@ -432,9 +432,7 @@ function Certificates({ items, register }: { items: PhotoItem[]; register: (fn: 
   );
 }
 
-function FideStatus({ a }: { a: Achiever }) {
-  const [msg, setMsg] = useState<{ ok?: string; error?: string }>({});
-  const [pending, start] = useTransition();
+function FideStatus({ a, msg, pending }: { a: Achiever; msg: { ok?: string; error?: string }; pending: boolean }) {
   const show = (v: number | null) => (typeof v === 'number' && v >= 1000 ? String(v) : 'Not rated');
   const when = a.fide_synced_at ? new Date(a.fide_synced_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
   return (
@@ -449,30 +447,19 @@ function FideStatus({ a }: { a: Achiever }) {
         ).map(([k, v]) => (
           <div key={k}>
             <span className="label-sm">{k}</span>
-            <b>{show(v)}</b>
+            <b>{pending ? '…' : show(v)}</b>
           </div>
         ))}
       </div>
       <p className="muted" style={{ margin: 0 }}>
-        {a.fide_id ? (when ? `Last checked with FIDE on ${when}.` : 'Not fetched from FIDE yet.') : 'Type the FIDE ID above and press the button below.'}
+        {pending
+          ? 'Fetching ratings from FIDE…'
+          : a.fide_id
+            ? when
+              ? `Updated automatically from FIDE (last checked ${when}).`
+              : 'Ratings will be fetched from FIDE automatically.'
+            : 'Type the FIDE ID above. Ratings are fetched automatically when you press Next.'}
       </p>
-      {(
-        <div>
-          <button
-            type="button"
-            className="btn-sm"
-            disabled={pending}
-            onClick={() =>
-              start(async () => {
-                const typed = (document.getElementById('fide_id') as HTMLInputElement | null)?.value ?? '';
-                setMsg((await syncMyFide(typed)) ?? {});
-              })
-            }
-          >
-            {pending ? 'Checking FIDE…' : 'Update from FIDE now'}
-          </button>
-        </div>
-      )}
       {msg.ok && <p className="ok" style={{ margin: 0 }}>{msg.ok}</p>}
       {msg.error && <p className="error" style={{ margin: 0 }}>{msg.error}</p>}
     </div>
@@ -595,9 +582,22 @@ export default function Dashboard({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resultsKey]);
   const [busy, setBusy] = useState(false);
+  const [fideMsg, setFideMsg] = useState<{ ok?: string; error?: string }>({});
+  const [fideBusy, setFideBusy] = useState(false);
+  const fideChecked = useRef(a.fide_synced_at ? a.fide_id ?? '' : '');
+  /** Fetches ratings from FIDE whenever the FIDE ID is new or changed. No button needed. */
+  async function syncFideIfNeeded() {
+    const typed = ((document.getElementById('fide_id') as HTMLInputElement | null)?.value ?? '').trim();
+    if (!typed || typed === fideChecked.current) return;
+    fideChecked.current = typed;
+    setFideBusy(true);
+    setFideMsg((await syncMyFide(typed).catch(() => ({ error: 'Could not reach FIDE. We will try again tomorrow.' }))) ?? {});
+    setFideBusy(false);
+  }
   async function go(next: number) {
     setBusy(true);
     await flushCerts.current();
+    if (tab === 3) await syncFideIfNeeded();
     setBusy(false);
     setTab(next);
   }
@@ -687,14 +687,14 @@ export default function Dashboard({
             <div className="pd-panel" hidden={tab !== 3}>
               <h2>FIDE</h2>
               <p className="muted">
-                Ratings are fetched automatically from the official FIDE website every day. Just make sure the FIDE ID is right.
+                Ratings come automatically from the official FIDE website and stay up to date every day. Just enter the FIDE ID.
               </p>
               <div className="grid">
                 <div className="field" style={{ maxWidth: 280 }}>
                   <label htmlFor="fide_id">FIDE ID</label>
-                  <input id="fide_id" name="fide_id" type="text" inputMode="numeric" defaultValue={a.fide_id ?? ''} placeholder="e.g. 374096774" />
+                  <input id="fide_id" name="fide_id" type="text" inputMode="numeric" defaultValue={a.fide_id ?? ''} placeholder="e.g. 374096774" onBlur={() => syncFideIfNeeded()} />
                 </div>
-                <FideStatus a={a} />
+                <FideStatus a={a} msg={fideMsg} pending={fideBusy} />
               </div>
             </div>
 
