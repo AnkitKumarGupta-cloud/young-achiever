@@ -262,11 +262,20 @@ export async function addResults(rows: { year: string; event: string; result: st
 }
 
 /** Fetches the latest ratings from FIDE now. */
-export async function syncMyFide(): Promise<FormState> {
+export async function syncMyFide(fideId?: string): Promise<FormState> {
   const me = await requireParent();
   const sb = supabaseServer();
   const { data: ach } = await sb.from('achievers').select('id, fide_id, full_name').eq('owner_id', me.id).maybeSingle();
   if (!ach) return { error: 'No page found for this account.' };
+  // Use the ID typed in the box (and save it), so parents don't have to press Save first.
+  const typed = (fideId ?? '').trim();
+  if (typed) {
+    if (!/^[0-9]{3,10}$/.test(typed)) return { error: 'FIDE ID must be digits only.' };
+    if (typed !== ach.fide_id) {
+      await sb.from('achievers').update({ fide_id: typed }).eq('id', ach.id);
+      ach.fide_id = typed;
+    }
+  }
   const r = await syncFide(sb, ach);
   if (r.ok) await refreshBio(sb, ach.id);
   revalidatePath('/parent');

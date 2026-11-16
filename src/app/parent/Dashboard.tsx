@@ -454,15 +454,20 @@ function FideStatus({ a }: { a: Achiever }) {
         ))}
       </div>
       <p className="muted" style={{ margin: 0 }}>
-        {a.fide_id ? (when ? `Last updated from FIDE on ${when}.` : 'Not fetched from FIDE yet.') : 'Add the FIDE ID above, then press Save draft.'}
+        {a.fide_id ? (when ? `Last checked with FIDE on ${when}.` : 'Not fetched from FIDE yet.') : 'Type the FIDE ID above and press the button below.'}
       </p>
-      {a.fide_id && (
+      {(
         <div>
           <button
             type="button"
             className="btn-sm"
             disabled={pending}
-            onClick={() => start(async () => setMsg((await syncMyFide()) ?? {}))}
+            onClick={() =>
+              start(async () => {
+                const typed = (document.getElementById('fide_id') as HTMLInputElement | null)?.value ?? '';
+                setMsg((await syncMyFide(typed)) ?? {});
+              })
+            }
           >
             {pending ? 'Checking FIDE…' : 'Update from FIDE now'}
           </button>

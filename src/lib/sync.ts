@@ -10,7 +10,11 @@ export const FIDE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 export async function syncFide(sb: SupabaseClient, a: Pick<Achiever, 'id' | 'fide_id' | 'full_name'>): Promise<{ ok: boolean; message: string; changed: boolean }> {
   if (!a.fide_id) return { ok: false, message: 'Add the FIDE ID to fetch ratings automatically.', changed: false };
   const p = await fetchFide(a.fide_id);
-  if (!p) return { ok: false, message: 'Could not find this FIDE ID on the FIDE website. Please check the number.', changed: false };
+  if (!p) {
+    // Remember we tried, so the dashboard doesn't ask FIDE again on every page load.
+    await sb.from('achievers').update({ fide_synced_at: new Date().toISOString() }).eq('id', a.id);
+    return { ok: false, message: `Could not find FIDE ID ${a.fide_id} on the FIDE website. Please check the number.`, changed: false };
+  }
   const { data: before } = await sb.from('achievers').select('fide_standard, fide_rapid, fide_blitz').eq('id', a.id).maybeSingle();
   const next = { fide_standard: p.standard, fide_rapid: p.rapid, fide_blitz: p.blitz };
   const changed = !before || before.fide_standard !== next.fide_standard || before.fide_rapid !== next.fide_rapid || before.fide_blitz !== next.fide_blitz;
