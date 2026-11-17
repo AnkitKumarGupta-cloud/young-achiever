@@ -1,7 +1,7 @@
 /* =====================================================================
    Young Achievers design system (2026 redesign)
    Ink navy, royal blue, medal yellow on a cool light ground.
-   One typeface: Outfit.
+   Type: Instrument Serif for big headlines, Inter for everything else.
    ===================================================================== */
 :root {
   --bg: #f3f5fa;
@@ -21,7 +21,9 @@
   --mint-soft: #ddf6ec;
   --red: #d93a3f;
   --red-soft: #fdeced;
-  --font: 'Outfit Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --headline: 'Instrument Serif', Georgia, 'Times New Roman', serif;
+  --display: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+  --font: 'Inter Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
   --r-sm: 10px;
   --r: 16px;
   --r-lg: 24px;
@@ -39,7 +41,8 @@
 }
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; scroll-padding-top: 76px; }
-body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font); font-size: 16.5px; line-height: 1.55; -webkit-font-smoothing: antialiased; font-optical-sizing: auto; }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font); font-size: 16px; line-height: 1.6; -webkit-font-smoothing: antialiased; font-optical-sizing: auto; }
+h1, h2, h3, .display, .brand-lockup, .lp-card-name, .lp-graph-n, .pp-stats dd, .pp-ratings dd, .rc-sum b, .stat b, .pd-fide-r b, .lp-steps li::before, .au-big { font-family: var(--display); }
 h1, h2, h3 { margin: 0; line-height: 1.08; letter-spacing: -0.015em; font-weight: 700; text-wrap: balance; }
 p { margin: 0 0 1em; }
 a { color: var(--royal); text-underline-offset: 3px; }
@@ -545,3 +548,15 @@ button.gold:hover { background: #ffcd52; border-color: #ffcd52; color: var(--ink
   .pd-user span { display: none; }
   .lp-cards { width: min(84%, 320px); }
 }
+
+/* ---------- headline face ---------- */
+.lp h1, .lp h2, .pp-info h1, .lp-card-name, .au-big, .au-card h1, .pd-banner h1, .simple-card h1 {
+  font-family: var(--headline); font-weight: 400; letter-spacing: -0.01em; line-height: 1;
+}
+.lp-hero h1 { font-size: clamp(3.1rem, 11.5vw, 6.2rem); max-width: 13ch; }
+.lp h2 { font-size: clamp(2.3rem, 5.6vw, 3.7rem); }
+.lp-card-name { font-size: 2.2rem; }
+.pp-info h1 { font-size: clamp(3rem, 12vw, 5.6rem); line-height: 0.95; }
+.au-big { font-size: clamp(2.8rem, 4.2vw, 4rem); }
+.au-card h1, .simple-card h1 { font-size: 2.6rem; }
+.pd-banner h1 { font-size: clamp(2rem, 4.6vw, 2.7rem); }
