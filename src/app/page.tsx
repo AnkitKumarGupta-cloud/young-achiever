@@ -1,29 +1,66 @@
 import Link from 'next/link';
-import { ArrowIcon, Crown, DocIcon, ShareIcon, ShieldIcon, StarIcon, TrophyIcon } from '@/components/icons';
+import { Logo } from '@/components/icons';
 
 // Public demo page shown to prospective parents (a real, published profile).
 const DEMO = `/achievers/${process.env.NEXT_PUBLIC_DEMO_SLUG || 'priyanshi'}`;
 
-const FEATURES = [
-  { icon: <DocIcon />, t: 'Just upload', d: 'Drop in photos and certificates from your phone. That’s the only thing you ever do.' },
-  { icon: <TrophyIcon />, t: 'Results read for you', d: 'Each certificate is read automatically: tournament, category, placing and points go straight onto the page.' },
-  { icon: <StarIcon />, t: 'FIDE ratings, always current', d: 'Add the FIDE ID once. Standard, Rapid and Blitz ratings update by themselves from the official FIDE site.' },
-  { icon: <ShareIcon />, t: 'One link to share', d: 'A beautiful page for family, coaches, schools and selectors. Opens instantly on any phone.' },
-];
-
 const FAQ = [
-  { q: 'Do I have to type anything?', a: 'No. Upload photos and certificates; the page writes itself. You can still edit anything if you want to.' },
-  { q: 'Where do the ratings come from?', a: 'Directly from the official FIDE ratings website, using your child’s FIDE ID. They refresh every day.' },
-  { q: 'Is my child’s page private?', a: 'Only people with the link can open it, and it is hidden from Google and other search engines. Contact details, addresses and schools are never shown.' },
-  { q: 'Can I take something down?', a: 'Yes. Remove any photo or certificate, or unpublish the whole page, at any time.' },
+  { q: 'Do I have to type anything?', a: 'No. Upload photos and certificates and the page writes itself. You can still change anything if you want to.' },
+  { q: 'Where do the ratings come from?', a: 'From the official FIDE ratings website, using your child’s FIDE ID. They are checked every day.' },
+  { q: 'My child has no FIDE ID yet. Can we still use it?', a: 'Yes. Results, certificates and photos work without one, and you can add other ratings such as national or online ones. Add the FIDE ID later and the graph starts on its own.' },
+  { q: 'Is my child’s page private?', a: 'Only people with the link can open it, and it is hidden from Google and other search engines. Addresses, phone numbers and schools are never shown.' },
+  { q: 'Can I take something down?', a: 'Yes. Remove any photo or certificate, or hide the whole page, whenever you like.' },
 ];
 
-function Wave({ fill, top }: { fill: string; top?: boolean }) {
+const Check = () => (
+  <svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true">
+    <circle cx="10" cy="10" r="10" fill="#10B57F" />
+    <path d="M6 10.3l2.6 2.6L14.2 7.3" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+/** Static sparkline used in the illustrations. */
+function Spark({ className, light }: { className?: string; light?: boolean }) {
+  const pts = [1412, 1418, 1409, 1431, 1440, 1436, 1458, 1471, 1466, 1489, 1501, 1512];
+  const d = pts.map((v, i) => `${(i / (pts.length - 1)) * 100},${100 - ((v - 1400) / 120) * 100}`).join(' ');
+  const c = light ? '#FFC233' : '#3047F5';
   return (
-    <svg className={`hm-wave${top ? ' top' : ''}`} viewBox="0 0 1440 90" preserveAspectRatio="none" aria-hidden="true">
-      <path d="M0 52C240 14 470 14 720 50S1180 86 1440 44" fill="none" stroke="#c9a24a" strokeWidth="3" />
-      <path d="M0 60C240 22 470 22 720 58S1180 94 1440 52V90H0Z" fill={fill} />
+    <svg className={className} viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+      <polygon points={`0,100 ${d} 100,100`} fill={light ? 'rgba(255,194,51,.18)' : 'rgba(48,71,245,.12)'} />
+      <polyline points={d} fill="none" stroke={c} strokeWidth="3" vectorEffect="non-scaling-stroke" strokeLinejoin="round" strokeLinecap="round" />
     </svg>
+  );
+}
+
+/** The product, drawn as a collectible player card. */
+function PlayerCard() {
+  return (
+    <div className="lp-cards" aria-hidden="true">
+      <div className="lp-card back" />
+      <div className="lp-card front">
+        <div className="lp-card-photo" />
+        <span className="lp-medal">
+          3rd
+          <small>State U-11</small>
+        </span>
+        <div className="lp-card-body">
+          <span className="lp-card-tag">Chess, FIDE rated</span>
+          <b className="lp-card-name">Anaya Sharma</b>
+          <div className="lp-card-stats">
+            <span>
+              <strong>1512</strong>Rapid
+            </span>
+            <span>
+              <strong>1488</strong>Blitz
+            </span>
+            <span>
+              <strong>6</strong>Events
+            </span>
+          </div>
+          <Spark className="lp-card-spark" light />
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -31,148 +68,135 @@ function Wave({ fill, top }: { fill: string; top?: boolean }) {
 export default function Home() {
   const year = new Date().getFullYear();
   return (
-    <main className="hm">
-      <header className="hm-hero">
-        <nav className="hm-nav">
-          <Link href="/" className="lg-brand dark">
-            <Crown size={40} />
-            <span className="lg-brand-t">
-              <b>Young Achievers</b>
-              <i>Small steps. Big dreams.</i>
-            </span>
+    <main className="lp">
+      <nav className="lp-nav">
+        <Link href="/" className="brand-lockup">
+          <Logo size={34} />
+          <span>Young Achievers</span>
+        </Link>
+        <div className="lp-nav-r">
+          <Link href={DEMO} className="lp-nav-link">
+            Example page
           </Link>
-          <Link href="/login" className="hm-navlink">
-            Parent login
+          <Link href="/login" className="btn ink sm">
+            Log in
           </Link>
-        </nav>
-        <div className="hm-hero-copy">
-          <p className="hm-kicker">For parents of young chess players</p>
-          <h1>
-            Your child&apos;s chess journey, on one <em>beautiful</em> page.
-          </h1>
+        </div>
+      </nav>
+
+      <header className="lp-hero">
+        <div className="lp-hero-copy">
+          <h1>A player page for your young chess star.</h1>
           <p>
-            Upload photos and certificates. We read the results, fetch FIDE ratings automatically and build a page you&apos;ll be
-            proud to share.
+            Upload photos and certificates. We read the results, follow the FIDE ratings every day and keep one page that family,
+            coaches and schools can open on any phone.
           </p>
-          <div className="hm-cta">
-            <Link href={DEMO} className="hm-btn gold">
-              See a live example <ArrowIcon width={18} height={18} />
+          <div className="lp-cta">
+            <Link href={DEMO} className="btn royal lg">
+              See an example page
             </Link>
-            <Link href="/login" className="hm-btn ghost">
+            <Link href="/login" className="btn ghost lg">
               Parent login
             </Link>
           </div>
-          <ul className="hm-trust">
+          <ul className="lp-checks">
             <li>
-              <ShieldIcon width={18} height={18} /> Private by link
+              <Check /> Ratings straight from FIDE
             </li>
             <li>
-              <StarIcon width={18} height={18} /> Ratings from FIDE
+              <Check /> Private by link
             </li>
             <li>
-              <TrophyIcon width={18} height={18} /> Certificates read automatically
+              <Check /> Nothing to type
             </li>
           </ul>
         </div>
-        <Wave fill="#f6f2e9" />
+        <PlayerCard />
       </header>
 
-      <section className="hm-sec" id="what">
-        <div className="hm-wrap hm-what">
-          <div className="hm-what-t">
-            <p className="hm-eyebrow">What you get</p>
-            <h2>You upload. We do the rest.</h2>
-            <p>Busy week of tournaments? Snap the certificate, upload it, done. The page stays up to date on its own.</p>
-            <Link href={DEMO} className="hm-textlink">
-              Open the example page <ArrowIcon width={16} height={16} />
-            </Link>
-          </div>
-          <div className="hm-feat">
-            {FEATURES.map((f) => (
-              <div key={f.t}>
-                <span className="hm-ico">{f.icon}</span>
-                <h3>{f.t}</h3>
-                <p>{f.d}</p>
-              </div>
-            ))}
-          </div>
+      <section className="lp-how" aria-labelledby="how-h">
+        <div className="lp-wrap">
+          <h2 id="how-h">Ready in three steps</h2>
+          <ol className="lp-steps">
+            <li>
+              <b>We set up your login</b>
+              <p>Send us your child’s name and FIDE ID. There are no forms to fill.</p>
+            </li>
+            <li>
+              <b>You upload photos and certificates</b>
+              <p>Straight from your phone, right after the tournament.</p>
+            </li>
+            <li>
+              <b>Share one link</b>
+              <p>Results, ratings and the About text are already there. Send it on WhatsApp.</p>
+            </li>
+          </ol>
         </div>
       </section>
 
-      <section className="hm-show">
-        <div className="hm-wrap hm-show-in">
-          <div className="hm-mock" aria-hidden="true">
-            <div className="hm-mock-top">
-              <Crown size={18} /> <span>Young Achievers</span>
-            </div>
-            <div className="hm-mock-hero">
+      <section className="lp-feat" aria-labelledby="feat-h">
+        <div className="lp-wrap">
+          <h2 id="feat-h">Everything stays up to date on its own</h2>
+          <div className="lp-bento">
+            <article className="lp-tile wide">
               <div>
-                <i>Young chess player</i>
-                <b>
-                  Aarav <em>Sharma</em>
-                </b>
-                <div className="hm-mock-stats">
-                  <span>
-                    <small>FIDE Rapid</small>1512
-                  </span>
-                  <span>
-                    <small>FIDE Blitz</small>1488
-                  </span>
-                  <span>
-                    <small>Tournaments</small>6
-                  </span>
-                </div>
+                <h3>Ratings every month</h3>
+                <p>Add the FIDE ID once. Standard, Rapid and Blitz ratings and the progress graph follow the official FIDE lists.</p>
               </div>
-              <div className="hm-mock-photo" />
-            </div>
-            <div className="hm-mock-body">
-              <span className="hm-mock-line w80" />
-              <span className="hm-mock-line w60" />
-              <div className="hm-mock-res">
-                <span>2026 · State U-11 Championship</span>
-                <b>3rd place</b>
+              <div className="lp-graph">
+                <span className="lp-graph-n">
+                  1512 <em>+100 this year</em>
+                </span>
+                <Spark className="lp-graph-svg" />
               </div>
-              <div className="hm-mock-res">
-                <span>2026 · District Rapid Open</span>
-                <b>6/7 points</b>
+            </article>
+
+            <article className="lp-tile">
+              <h3>Results read from certificates</h3>
+              <p>Tournament, category, place and points come straight off the photo.</p>
+              <div className="lp-read">
+                <span className="lp-read-src">…secured 3rd place in the Under-11 category with 6 points…</span>
+                <span className="lp-read-out">
+                  <b>State U-11 Championship</b>
+                  <em>3rd, 6 pts</em>
+                </span>
               </div>
-            </div>
-          </div>
-          <div className="hm-show-t">
-            <p className="hm-eyebrow">How it works</p>
-            <h2>Ready in minutes</h2>
-            <ol className="hm-steps">
-              <li>
-                <span className="hm-n">1</span>
-                <div>
-                  <b>We set up your login</b>
-                  <p>Tell us your child&apos;s name and FIDE ID. No forms to fill.</p>
-                </div>
-              </li>
-              <li>
-                <span className="hm-n">2</span>
-                <div>
-                  <b>Upload photos &amp; certificates</b>
-                  <p>Results, ratings and the About text appear automatically.</p>
-                </div>
-              </li>
-              <li>
-                <span className="hm-n">3</span>
-                <div>
-                  <b>Share one link</b>
-                  <p>Send it on WhatsApp to family, coaches and schools.</p>
-                </div>
-              </li>
-            </ol>
+            </article>
+
+            <article className="lp-tile sun">
+              <h3>Best results first</h3>
+              <p>The strongest finish and the biggest event are picked out automatically.</p>
+              <div className="lp-medals">
+                <span>
+                  <i>3rd</i>State U-11 Championship
+                </span>
+                <span>
+                  <i>★</i>National level played
+                </span>
+              </div>
+            </article>
+
+            <article className="lp-tile ink wide">
+              <div>
+                <h3>One link for everyone</h3>
+                <p>Grandparents, coaches, schools and selectors open the same page. No app, no account.</p>
+              </div>
+              <div className="lp-chat">
+                <span className="lp-bubble">
+                  Anaya’s chess page, with this weekend’s result
+                  <u>young-achievers.vercel.app/achievers/anaya</u>
+                  <small>9:41</small>
+                </span>
+              </div>
+            </article>
           </div>
         </div>
       </section>
 
-      <section className="hm-sec hm-faq-sec">
-        <div className="hm-wrap">
-          <p className="hm-eyebrow">Questions parents ask</p>
-          <h2>Good to know</h2>
-          <div className="hm-faq">
+      <section className="lp-faq" aria-labelledby="faq-h">
+        <div className="lp-wrap lp-faq-in">
+          <h2 id="faq-h">Questions parents ask</h2>
+          <div className="faq">
             {FAQ.map((f) => (
               <details key={f.q}>
                 <summary>{f.q}</summary>
@@ -183,36 +207,26 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="hm-band">
-        <Wave fill="#f6f2e9" top />
-        <div className="hm-wrap hm-band-in">
-          <h2>
-            Because every child&apos;s journey
-            <br />
-            deserves to be remembered.
-          </h2>
-          <div className="hm-cta">
-            <Link href={DEMO} className="hm-btn gold">
-              See a live example <ArrowIcon width={18} height={18} />
+      <section className="lp-wrap">
+        <div className="lp-end">
+          <h2>Open a real player page and see for yourself.</h2>
+          <div className="lp-cta">
+            <Link href={DEMO} className="btn sun lg">
+              See an example page
             </Link>
-            <Link href="/login" className="hm-btn ghost">
+            <Link href="/login" className="btn on-dark lg">
               Parent login
             </Link>
           </div>
         </div>
-        <Wave fill="#0c271e" />
       </section>
 
-      <footer className="hm-foot">
-        <div className="hm-wrap hm-foot-in">
-          <Link href="/" className="lg-brand dark">
-            <Crown size={28} />
-            <span className="lg-brand-t">
-              <b>Young Achievers</b>
-            </span>
-          </Link>
-          <span>&copy; {year} Young Achievers</span>
-        </div>
+      <footer className="lp-foot lp-wrap">
+        <span className="brand-lockup sm">
+          <Logo size={24} />
+          <span>Young Achievers</span>
+        </span>
+        <span>© {year} Young Achievers</span>
       </footer>
     </main>
   );

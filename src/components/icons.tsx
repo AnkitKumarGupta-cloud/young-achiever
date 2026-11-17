@@ -123,3 +123,11 @@ export const HelpIcon = (p: SVGProps<SVGSVGElement>) => (
     <path d="M9.6 9.5a2.5 2.5 0 1 1 3.6 2.2c-.8.4-1.2 1-1.2 1.8M12 16.6v.1" />
   </svg>
 );
+
+/** Brand mark: a medal-yellow star on a royal-blue tile. */
+export const Logo = ({ size = 32 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true" className="logo">
+    <rect width="32" height="32" rx="9" fill="#3047F5" />
+    <path d="M16 6.5l2.9 5.9 6.5.9-4.7 4.6 1.1 6.5L16 21.3l-5.8 3.1 1.1-6.5-4.7-4.6 6.5-.9z" fill="#FFC233" />
+  </svg>
+);

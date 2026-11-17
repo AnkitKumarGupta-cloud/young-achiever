@@ -1,13 +1,14 @@
 import Link from 'next/link';
 import { logout } from '@/app/login/actions';
+import { Logo } from '@/components/icons';
 
 export default function TopBar({ username, admin }: { username: string; admin?: boolean }) {
   return (
     <header className="nav">
       <div className="nav-in">
-        <Link href={admin ? '/admin' : '/parent'} className="brand">
-          <span className="mark" />
-          Young Achievers
+        <Link href={admin ? '/admin' : '/parent'} className="brand-lockup">
+          <Logo size={30} />
+          <span>Young Achievers</span>
           {admin && <span className="tag">Admin</span>}
         </Link>
         <form action={logout} className="nav-user">

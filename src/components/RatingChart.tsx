@@ -5,9 +5,9 @@ type Point = NonNullable<Achiever['fide_history']>[number];
 type Key = 's' | 'r' | 'b';
 
 const SERIES: { key: Key; label: string; color: string }[] = [
-  { key: 'r', label: 'Rapid', color: '#1f6b4f' },
-  { key: 's', label: 'Standard', color: '#c9a24a' },
-  { key: 'b', label: 'Blitz', color: '#6f8fb8' },
+  { key: 'r', label: 'Rapid', color: '#3047F5' },
+  { key: 's', label: 'Standard', color: '#F2AD00' },
+  { key: 'b', label: 'Blitz', color: '#10B57F' },
 ];
 
 /** "2025-Jul" -> "Jul '25" */

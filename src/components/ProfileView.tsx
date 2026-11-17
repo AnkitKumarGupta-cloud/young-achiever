@@ -4,7 +4,7 @@ import type { LoadedProfile, TournamentResult } from '@/lib/types';
 import { buildBio, heroPos } from '@/lib/bio';
 import { buildHighlights } from '@/lib/highlights';
 import { siteOrigin } from '@/lib/site';
-import { Crown, ShieldIcon } from '@/components/icons';
+import { Logo, ShieldIcon } from '@/components/icons';
 import ShareButton from '@/components/ShareButton';
 import CertGallery from '@/components/CertGallery';
 import RatingChart from '@/components/RatingChart';
@@ -79,89 +79,73 @@ export default function ProfileView({ profile }: { profile: LoadedProfile }) {
     : undefined;
 
   return (
-    <article className="ap">
-      <header className="ap-bar">
-        <div className="ap-wrap ap-bar-in">
-          <Link href="/" className="lg-brand dark">
-            <Crown size={28} />
-            <span className="lg-brand-t">
-              <b>Young Achievers</b>
-            </span>
+    <article className="pp">
+      <header className="pp-bar">
+        <div className="pp-wrap pp-bar-in">
+          <Link href="/" className="brand-lockup sm">
+            <Logo size={28} />
+            <span>Young Achievers</span>
           </Link>
-          <ShareButton url={link} title={`${a.full_name} · Young Achievers`} />
+          <ShareButton url={link} title={`${a.full_name}, Young Achievers`} />
         </div>
       </header>
 
-      <section className={`ap-hero${main ? ' has-photo' : ''}`}>
-        {main && <div className="ap-hero-bg" style={photoStyle} aria-hidden="true" />}
-        <div className="ap-wrap ap-hero-in">
-          <div className="ap-hero-text">
-            <p className="ap-eyebrow">
-              <span aria-hidden="true">&#9822;&#xFE0E;</span> Young chess player
+      <section className="pp-wrap pp-top">
+        <div className={`pp-card${main ? '' : ' no-photo'}`}>
+          <div className="pp-photo">
+            {main ? (
+              <div className="pp-photo-img" style={photoStyle} role="img" aria-label={`Photo of ${a.full_name}`} />
+            ) : (
+              <div className="pp-photo-none" aria-hidden="true">
+                {initials}
+              </div>
+            )}
+          </div>
+          <div className="pp-info">
+            <p className="pp-kicker">
+              <span>Chess player</span>
+              {a.fide_id && (
+                <a href={`https://ratings.fide.com/profile/${a.fide_id}`} target="_blank" rel="noopener noreferrer nofollow">
+                  <ShieldIcon width={15} height={15} /> FIDE ID {a.fide_id}
+                </a>
+              )}
             </p>
             <h1>
               {firstName}
               {lastParts.length > 0 && <span> {lastParts.join(' ')}</span>}
             </h1>
-            <div className="ap-chips">
-            {a.fide_id && (
-              <a
-                className="ap-fide"
-                href={`https://ratings.fide.com/profile/${a.fide_id}`}
-                target="_blank"
-                rel="noopener noreferrer nofollow"
-              >
-                <ShieldIcon width={16} height={16} /> FIDE ID {a.fide_id} <span aria-hidden="true">&#8599;</span>
-              </a>
-            )}
-            </div>
             {stats.length > 0 && (
-              <dl className={`ap-stats n${stats.length}`}>
+              <dl className={`pp-stats n${stats.length}`}>
                 {stats.map((s) => (
                   <div key={s.l}>
-                    <dt>{s.l}</dt>
                     <dd>{s.n}</dd>
+                    <dt>{s.l}</dt>
                   </div>
                 ))}
               </dl>
             )}
-          </div>
-          <div className="ap-portrait">
-            {main ? (
-              <div className="ap-portrait-img" style={photoStyle} role="img" aria-label={`Photo of ${a.full_name}`} />
-            ) : (
-              <div className="ap-portrait-none" aria-hidden="true">
-                {initials}
-              </div>
+            {highlights.length > 0 && (
+              <ul className="pp-hl" aria-label="Highlights">
+                {highlights.map((h) => (
+                  <li key={h.kind}>
+                    <span className="medal" aria-hidden="true">
+                      {h.kind === 'stage' ? '★' : h.kind === 'score' ? '♟︎' : h.big}
+                    </span>
+                    <span className="pp-hl-t">
+                      <b>{h.kind === 'place' ? h.event : h.kind === 'score' ? `${h.big} points` : `${h.big} level`}</b>
+                      <span>{h.kind === 'place' ? h.label : h.event}</span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
             )}
           </div>
         </div>
       </section>
 
-      {highlights.length > 0 && (
-        <section className="ap-hl" aria-label="Highlights">
-          <ul className={`ap-wrap ap-hl-in n${highlights.length}`}>
-            {highlights.map((h) => (
-              <li key={h.kind} className={`ap-hl-i k-${h.kind}`}>
-                <span className="ap-hl-medal" aria-hidden="true">
-                  {h.kind === 'stage' ? '\u2605' : h.kind === 'score' ? '\u265F\uFE0E' : '\u2655\uFE0E'}
-                </span>
-                <div>
-                  <b>{h.big}</b>
-                  <span className="ap-hl-l">{h.label}</span>
-                  <span className="ap-hl-e">
-                    {h.event.includes(String(h.year)) ? h.event : `${h.event} · ${h.year}`}
-                  </span>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
       {sections.length > 1 && (
-        <nav className="ap-tabs" aria-label="Sections">
-          <div className="ap-wrap ap-tabs-in">
+        <nav className="pp-tabs" aria-label="Sections">
+          <div className="pp-wrap pp-tabs-in">
             {sections.map((s) => (
               <a key={s.id} href={`#${s.id}`}>
                 {s.label}
@@ -171,45 +155,43 @@ export default function ProfileView({ profile }: { profile: LoadedProfile }) {
         </nav>
       )}
 
-      <div className="ap-wrap ap-body">
-        <div className="ap-main">
+      <div className="pp-wrap pp-body">
+        <div className="pp-main">
           {bio && (
-            <section id="about" className="ap-sec">
+            <section id="about" className="pp-sec">
               <h2>About {firstName}</h2>
-              <p className="ap-bio">{bio}</p>
+              <p className="pp-bio">{bio}</p>
             </section>
           )}
 
           {hasGraph && (
-            <section id="progress" className="ap-sec">
+            <section id="progress" className="pp-sec">
               <h2>Rating progress</h2>
               <RatingChart history={history} />
             </section>
           )}
 
           {groups.length > 0 && (
-            <section id="results" className="ap-sec">
+            <section id="results" className="pp-sec">
               <h2>Tournament results</h2>
-              <ol className="ap-results">
+              <ol className="pp-results">
                 {groups.map((g) => {
                   const [title, place] = splitPlace(g.name);
                   return (
-                    <li key={`${g.year}-${g.name}`} className="ap-event">
-                      <div className="ap-event-h">
-                        <span className="ap-year">{g.year}</span>
-                        <div>
-                          <h3>{title}</h3>
-                          {place && <p className="muted">{place}</p>}
-                        </div>
+                    <li key={`${g.year}-${g.name}`}>
+                      <span className="pp-year">{g.year}</span>
+                      <div className="pp-ev">
+                        <h3>{title}</h3>
+                        {place && <p className="muted">{place}</p>}
+                        <ul>
+                          {g.rows.map((r) => (
+                            <li key={r.id}>
+                              <span>{r.section || 'Overall'}</span>
+                              <b>{r.result}</b>
+                            </li>
+                          ))}
+                        </ul>
                       </div>
-                      <ul className="ap-rows">
-                        {g.rows.map((r) => (
-                          <li key={r.id}>
-                            <span>{r.section || 'Overall'}</span>
-                            <b>{r.result}</b>
-                          </li>
-                        ))}
-                      </ul>
                     </li>
                   );
                 })}
@@ -218,25 +200,25 @@ export default function ProfileView({ profile }: { profile: LoadedProfile }) {
           )}
 
           {certificates.length > 0 && (
-            <section id="certificates" className="ap-sec">
+            <section id="certificates" className="pp-sec">
               <h2>Certificates</h2>
               <CertGallery items={certificates} name={a.full_name} />
             </section>
           )}
 
           {rest.length > 0 && (
-            <section id="photos" className="ap-sec">
+            <section id="photos" className="pp-sec">
               <h2>Photos</h2>
               <CertGallery items={rest} name={a.full_name} variant="photo" />
             </section>
           )}
         </div>
 
-        <aside className="ap-side">
+        <aside className="pp-side">
           {(ratings.length > 0 || other.length > 0) && (
-            <div className="ap-card">
+            <div className="pp-sec pp-ratings">
               <h3>Ratings</h3>
-              <dl className="ap-rl">
+              <dl>
                 {ratings.map((r) => (
                   <div key={r.label}>
                     <dt>FIDE {r.label}</dt>
@@ -251,28 +233,30 @@ export default function ProfileView({ profile }: { profile: LoadedProfile }) {
                 ))}
               </dl>
               {a.fide_id && (
-                <a className="ap-verify" href={`https://ratings.fide.com/profile/${a.fide_id}`} target="_blank" rel="noopener noreferrer nofollow">
-                  Check on the official FIDE site &#8599;
+                <a className="pp-verify" href={`https://ratings.fide.com/profile/${a.fide_id}`} target="_blank" rel="noopener noreferrer nofollow">
+                  Check on the official FIDE site
                 </a>
               )}
             </div>
           )}
-          <div className="ap-card ap-quote">
-            <Crown size={26} />
-            <p>Every achievement deserves a story.</p>
+          <div className="pp-share-card">
+            <b>Share {firstName}&apos;s page</b>
+            <p>Send the link to family, coaches and school.</p>
+            <ShareButton url={link} title={`${a.full_name}, Young Achievers`} />
           </div>
         </aside>
       </div>
 
-      <footer className="ap-foot">
-        <div className="ap-wrap">
+      <footer className="pp-foot">
+        <div className="pp-wrap">
           <p>
             The details on this page were submitted by the player&apos;s parent or guardian and have not been independently
             verified. FIDE ratings can be checked on the official FIDE ratings site using the FIDE ID above.
           </p>
-          <p className="ap-foot-b">
-            <Crown size={20} /> Young Achievers
-          </p>
+          <span className="brand-lockup sm">
+            <Logo size={22} />
+            <span>Young Achievers</span>
+          </span>
         </div>
       </footer>
     </article>

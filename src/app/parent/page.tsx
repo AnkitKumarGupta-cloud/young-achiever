@@ -6,7 +6,7 @@ import { FIDE_MAX_AGE_MS, refreshBio, syncFide } from '@/lib/sync';
 import { buildBio } from '@/lib/bio';
 import { siteOrigin } from '@/lib/site';
 import { logout } from '@/app/login/actions';
-import { Crown, EyeIcon, HelpIcon, PenIcon, GridIcon } from '@/components/icons';
+import { Logo, EyeIcon, HelpIcon, PenIcon, GridIcon } from '@/components/icons';
 import Dashboard from './Dashboard';
 
 export const dynamic = 'force-dynamic';
@@ -25,13 +25,13 @@ export default async function ParentPage() {
 
   const top = (
     <header className="pd-top">
-      <Link href="/parent" className="lg-brand dark">
-        <Crown size={40} />
-        <span className="lg-brand-t"><b>Young Achievers</b><i>Small steps. Big dreams.</i></span>
+      <Link href="/parent" className="brand-lockup">
+        <Logo size={32} />
+        <span>Young Achievers</span>
       </Link>
       <form action={logout} className="pd-user">
-        <span>Welcome back,<br /><b>{me.username}</b></span>
-        <button className="pd-out">Log out</button>
+        <span>Logged in as <b>{me.username}</b></span>
+        <button className="btn-sm">Log out</button>
       </form>
     </header>
   );
@@ -60,12 +60,11 @@ export default async function ParentPage() {
         <a href="#edit"><PenIcon /> <span>Edit page</span></a>
         <Link href="/parent/preview" target="_blank"><EyeIcon /> <span>Preview page</span></Link>
         <a href="#help"><HelpIcon /> <span>Help</span></a>
-        <p className="pd-side-q">Every achievement<br />deserves a story.</p>
       </nav>
       <main className="pd-main" id="top">
         <section className="pd-banner">
-          <h1>Let&rsquo;s tell your child&rsquo;s story.</h1>
-          <p>Add photos, certificates, FIDE ratings and tournament results, then press Publish. Your page goes live straight away.</p>
+          <h1>Hello! Let&rsquo;s keep the page up to date.</h1>
+          <p>Drop in new photos and certificates below. Ratings and results update by themselves. Press Publish when you are happy.</p>
         </section>
         <Dashboard
           key={`${a.fide_standard}-${a.fide_rapid}-${a.fide_blitz}-${a.full_name}-${photos.map((p) => p.id).join(",")}`}
@@ -81,7 +80,7 @@ export default async function ParentPage() {
       </main>
       <aside className="pd-right">
         <section className="card">
-          <div className="pd-ph"><h3>Page preview</h3><Link href="/parent/preview" target="_blank">View full page &rarr;</Link></div>
+          <div className="pd-ph"><h3>Page preview</h3><Link href="/parent/preview" target="_blank">Open full page</Link></div>
           <div className="pd-pv">
             <div className="pd-pv-ph" style={main ? { backgroundImage: `url("${main.url}")`, backgroundPosition: `${a.hero_x ?? 50}% ${a.hero_y ?? 35}%` } : undefined} />
             <b>{a.full_name}</b>

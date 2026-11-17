@@ -21,7 +21,7 @@ export default function ShareButton({ url, title }: { url: string; title: string
     setTimeout(() => setMsg(''), 2000);
   }
   return (
-    <button type="button" className="ap-share" onClick={share}>
+    <button type="button" className="btn royal sm pp-share" onClick={share}>
       <ShareIcon width={18} height={18} />
       <span>{msg || 'Share'}</span>
     </button>
