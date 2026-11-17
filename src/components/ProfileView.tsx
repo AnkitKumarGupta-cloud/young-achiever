@@ -2,6 +2,7 @@ import type { CSSProperties } from 'react';
 import Link from 'next/link';
 import type { LoadedProfile, TournamentResult } from '@/lib/types';
 import { buildBio, heroPos } from '@/lib/bio';
+import { buildHighlights } from '@/lib/highlights';
 import { siteOrigin } from '@/lib/site';
 import { Crown, ShieldIcon } from '@/components/icons';
 import ShareButton from '@/components/ShareButton';
@@ -47,6 +48,7 @@ export default function ProfileView({ profile }: { profile: LoadedProfile }) {
   const bio = a.bio?.trim() || buildBio(a, other, results);
   const link = `${siteOrigin()}/achievers/${a.slug}`;
   const groups = groupResults(results);
+  const highlights = buildHighlights(results);
   const [firstName, ...lastParts] = a.full_name.trim().split(/\s+/);
   const initials = a.full_name
     .split(/\s+/)
@@ -131,6 +133,27 @@ export default function ProfileView({ profile }: { profile: LoadedProfile }) {
           </div>
         </div>
       </section>
+
+      {highlights.length > 0 && (
+        <section className="ap-hl" aria-label="Highlights">
+          <ul className={`ap-wrap ap-hl-in n${highlights.length}`}>
+            {highlights.map((h) => (
+              <li key={h.kind} className={`ap-hl-i k-${h.kind}`}>
+                <span className="ap-hl-medal" aria-hidden="true">
+                  {h.kind === 'stage' ? '\u2605' : h.kind === 'score' ? '\u265F\uFE0E' : '\u2655\uFE0E'}
+                </span>
+                <div>
+                  <b>{h.big}</b>
+                  <span className="ap-hl-l">{h.label}</span>
+                  <span className="ap-hl-e">
+                    {h.event.includes(String(h.year)) ? h.event : `${h.event} · ${h.year}`}
+                  </span>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {sections.length > 1 && (
         <nav className="ap-tabs" aria-label="Sections">
