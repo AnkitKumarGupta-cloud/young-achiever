@@ -762,3 +762,13 @@ input[type=text],input[type=password],input[type=number],textarea{border-radius:
 .ap-main{display:flex;flex-direction:column;gap:22px}
 @media(max-width:599px){.ap-sec{padding:18px;border-radius:18px}}
 @media(max-width:899px){.ap-stats.n3 dt{white-space:nowrap;font-size:.56rem;letter-spacing:.04em}}
+
+/* ---------- hero v5: framed portrait (works with any photo) + soft blurred backdrop ---------- */
+@media(min-width:900px){
+  .ap-hero.has-photo .ap-hero-bg{display:block;position:absolute;inset:-80px;background-size:cover;background-position:center;filter:blur(40px) saturate(1.2) brightness(.45);transform:scale(1.1)}
+  .ap-hero.has-photo .ap-hero-bg::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,var(--ap-deep) 0%,rgba(12,39,30,.85) 45%,rgba(12,39,30,.55) 100%)}
+  .ap-hero.has-photo .ap-portrait{display:block;max-width:360px;justify-self:end;width:100%}
+  .ap-hero.has-photo .ap-portrait::after{display:block}
+  .ap-hero.has-photo .ap-hero-in{grid-template-columns:minmax(0,1fr) minmax(0,360px);gap:56px;min-height:0;padding-top:48px;padding-bottom:56px;align-items:center}
+  .ap-hero.has-photo .ap-portrait-img{aspect-ratio:4/5;max-height:58vh}
+}
