@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 // Fonts are bundled with the site (no request to Google Fonts before the page can draw).
-import '@fontsource-variable/bricolage-grotesque/opsz.css';
+import '@fontsource-variable/outfit';
 import './globals.css';
 
 export const metadata: Metadata = {
