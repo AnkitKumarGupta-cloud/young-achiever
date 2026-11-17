@@ -746,3 +746,19 @@ input[type=text],input[type=password],input[type=number],textarea{border-radius:
   .ap-stats.n3 dt{font-size:.6rem;letter-spacing:.08em}
   .ap-stats.n3 dd{font-size:1.6rem}
 }
+
+/* ---------- hero v4.1: richer backgrounds ---------- */
+.ap-hero{background:radial-gradient(600px 380px at 15% 0%,rgba(201,162,74,.22),transparent 65%),radial-gradient(700px 500px at 100% 100%,rgba(76,195,138,.12),transparent 60%),linear-gradient(160deg,#16463a,var(--ap-deep) 75%)}
+.ap-hero-in{z-index:1}
+@media(max-width:899px){
+  .ap-hero.has-photo .ap-hero-bg{display:block;position:absolute;inset:-60px;background-size:cover;background-position:center;filter:blur(30px) saturate(1.3) brightness(.55);transform:scale(1.1)}
+  .ap-hero.has-photo .ap-hero-bg::after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,rgba(12,39,30,.15),rgba(12,39,30,.75) 70%,var(--ap-deep))}
+  .ap-hero.has-photo .ap-stats div{background:rgba(255,255,255,.1);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+}
+@media(min-width:900px){.ap-hero.has-photo .ap-hero-bg{filter:none;transform:none}}
+.ap{background:radial-gradient(900px 500px at 100% 0%,rgba(201,162,74,.10),transparent 60%),radial-gradient(800px 600px at 0% 60%,rgba(18,58,44,.07),transparent 60%),var(--paper)}
+.ap-tabs{background:rgba(246,242,233,.92);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+.ap-sec{background:#fffdf8;border:1px solid rgba(18,58,44,.08);border-radius:22px;padding:24px;box-shadow:0 18px 40px -30px rgba(12,39,30,.35)}
+.ap-main{display:flex;flex-direction:column;gap:22px}
+@media(max-width:599px){.ap-sec{padding:18px;border-radius:18px}}
+@media(max-width:899px){.ap-stats.n3 dt{white-space:nowrap;font-size:.56rem;letter-spacing:.04em}}
