@@ -182,11 +182,30 @@ export default function Home() {
                 <p>Grandparents, coaches, schools and selectors open the same page. No app, no account.</p>
               </div>
               <div className="lp-chat">
-                <span className="lp-bubble">
-                  Anaya’s chess page, with this weekend’s result
-                  <u>young-achievers.vercel.app/achievers/anaya</u>
-                  <small>9:41</small>
-                </span>
+                <div className="lp-chat-top">
+                  <span className="lp-chat-av">F</span>
+                  <span>
+                    <b>Family</b>
+                    <small>Nani, Mama, Coach Raghav, you</small>
+                  </span>
+                </div>
+                <div className="lp-chat-body">
+                  <span className="lp-msg out">
+                    Anaya’s chess page, with this weekend’s result
+                    <u>young-achievers.vercel.app/achievers/anaya</u>
+                    <small>9:41</small>
+                  </span>
+                  <span className="lp-msg in">
+                    <em>Nani</em>
+                    So proud of her! Showing everyone at the temple today
+                    <small>9:44</small>
+                  </span>
+                  <span className="lp-msg in">
+                    <em>Coach Raghav</em>
+                    Great progress on the rating graph. Keep it up, Anaya
+                    <small>9:52</small>
+                  </span>
+                </div>
               </div>
             </article>
           </div>
