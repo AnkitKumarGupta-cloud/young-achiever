@@ -195,7 +195,13 @@ export default function Home() {
 
       <section className="lp-faq" aria-labelledby="faq-h">
         <div className="lp-wrap lp-faq-in">
-          <h2 id="faq-h">Questions parents ask</h2>
+          <div className="lp-faq-side">
+            <h2 id="faq-h">Questions parents ask</h2>
+            <p>Anything else? Open the example page to see exactly what your child’s page will look like.</p>
+            <Link href={DEMO} className="btn royal">
+              See an example page
+            </Link>
+          </div>
           <div className="faq">
             {FAQ.map((f) => (
               <details key={f.q}>
@@ -209,14 +215,32 @@ export default function Home() {
 
       <section className="lp-wrap">
         <div className="lp-end">
-          <h2>Open a real player page and see for yourself.</h2>
-          <div className="lp-cta">
-            <Link href={DEMO} className="btn sun lg">
-              See an example page
-            </Link>
-            <Link href="/login" className="btn on-dark lg">
-              Parent login
-            </Link>
+          <div className="lp-end-copy">
+            <h2>Open a real player page and see for yourself.</h2>
+            <p>It takes ten seconds. This is exactly what family, coaches and schools will see when you share the link.</p>
+            <div className="lp-cta">
+              <Link href={DEMO} className="btn sun lg">
+                See an example page
+              </Link>
+              <Link href="/login" className="btn on-dark lg">
+                Parent login
+              </Link>
+            </div>
+          </div>
+          <div className="lp-end-art" aria-hidden="true">
+            <PlayerCard />
+            <span className="lp-note n1">
+              <i className="up">↑</i>
+              <span>
+                <b>+23 Rapid</b> this month
+              </span>
+            </span>
+            <span className="lp-note n2">
+              <i>✓</i>
+              <span>
+                <b>New result added</b> from a certificate
+              </span>
+            </span>
           </div>
         </div>
       </section>
