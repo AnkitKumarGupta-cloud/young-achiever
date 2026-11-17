@@ -18,7 +18,10 @@ export async function syncFide(sb: SupabaseClient, a: Pick<Achiever, 'id' | 'fid
   const { data: before } = await sb.from('achievers').select('fide_standard, fide_rapid, fide_blitz').eq('id', a.id).maybeSingle();
   const next = { fide_standard: p.standard, fide_rapid: p.rapid, fide_blitz: p.blitz };
   const changed = !before || before.fide_standard !== next.fide_standard || before.fide_rapid !== next.fide_rapid || before.fide_blitz !== next.fide_blitz;
-  const { error } = await sb.from('achievers').update({ ...next, fide_synced_at: new Date().toISOString() }).eq('id', a.id);
+  const stamp = { ...next, fide_synced_at: new Date().toISOString() };
+  let { error } = await sb.from('achievers').update({ ...stamp, fide_history: p.history }).eq('id', a.id);
+  // Works before migration 005 (fide_history column) has been run.
+  if (error) ({ error } = await sb.from('achievers').update(stamp).eq('id', a.id));
   if (error) return { ok: false, message: 'Could not save the FIDE ratings.', changed: false };
   const warn = nameMatches(p.name, a.full_name) ? '' : ` Note: FIDE lists this ID as "${p.name}". Please check it is the right player.`;
   return { ok: true, message: `Ratings updated from FIDE${p.period ? ` (${p.period} list)` : ''}.${warn}`, changed };

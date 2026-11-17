@@ -14,7 +14,11 @@ export type FideProfile = {
   rapid: number | null;
   blitz: number | null;
   period: string; // e.g. "2026-Oct"
+  history: FideHistoryPoint[]; // oldest first
 };
+
+/** One monthly FIDE list. null = no rating published that month for that time control. */
+export type FideHistoryPoint = { p: string; s: number | null; r: number | null; b: number | null };
 
 const strip = (s: string) =>
   s
@@ -35,6 +39,10 @@ export function parseFideProfile(html: string): FideProfile | null {
     const cells = (tr.match(/<t[dh][^>]*>([\s\S]*?)<\/t[dh]>/gi) ?? []).map((c) => strip(c));
     if (cells.length >= 4 && /^\d{4}-[A-Za-z]{3}$/.test(cells[0])) rows.push(cells);
   }
+  const val = (cell?: string) => {
+    const n = Number((cell ?? '').replace(/[^\d]/g, ''));
+    return n >= 1000 && n <= 3500 ? n : null;
+  };
   const latest = (col: number) => {
     for (const r of rows) {
       const n = Number((r[col] ?? '').replace(/[^\d]/g, ''));
@@ -56,6 +64,10 @@ export function parseFideProfile(html: string): FideProfile | null {
     rapid: latest(3),
     blitz: latest(5),
     period: rows[0]?.[0] ?? '',
+    history: rows
+      .map((r) => ({ p: r[0], s: val(r[1]), r: val(r[3]), b: val(r[5]) }))
+      .filter((h) => h.s || h.r || h.b)
+      .reverse(),
   };
 }
 

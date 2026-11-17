@@ -13,6 +13,7 @@ export type Achiever = {
   fide_rapid: number | null;
   fide_blitz: number | null;
   fide_synced_at?: string | null;
+  fide_history?: { p: string; s: number | null; r: number | null; b: number | null }[] | null;
   hero_x?: number | null;
   hero_y?: number | null;
   published: boolean;

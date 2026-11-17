@@ -7,6 +7,7 @@ import { siteOrigin } from '@/lib/site';
 import { Crown, ShieldIcon } from '@/components/icons';
 import ShareButton from '@/components/ShareButton';
 import CertGallery from '@/components/CertGallery';
+import RatingChart from '@/components/RatingChart';
 
 type Group = { name: string; year: number; rows: { section: string; result: string; id: string }[] };
 
@@ -49,6 +50,8 @@ export default function ProfileView({ profile }: { profile: LoadedProfile }) {
   const link = `${siteOrigin()}/achievers/${a.slug}`;
   const groups = groupResults(results);
   const highlights = buildHighlights(results);
+  const history = (a.fide_history ?? []).filter((h) => h && (h.s || h.r || h.b));
+  const hasGraph = history.length >= 2;
   const [firstName, ...lastParts] = a.full_name.trim().split(/\s+/);
   const initials = a.full_name
     .split(/\s+/)
@@ -65,6 +68,7 @@ export default function ProfileView({ profile }: { profile: LoadedProfile }) {
 
   const sections = [
     { id: 'about', label: 'About', show: Boolean(bio) },
+    { id: 'progress', label: 'Progress', show: hasGraph },
     { id: 'results', label: 'Results', show: groups.length > 0 },
     { id: 'certificates', label: 'Certificates', show: certificates.length > 0 },
     { id: 'photos', label: 'Photos', show: rest.length > 0 },
@@ -173,6 +177,13 @@ export default function ProfileView({ profile }: { profile: LoadedProfile }) {
             <section id="about" className="ap-sec">
               <h2>About {firstName}</h2>
               <p className="ap-bio">{bio}</p>
+            </section>
+          )}
+
+          {hasGraph && (
+            <section id="progress" className="ap-sec">
+              <h2>Rating progress</h2>
+              <RatingChart history={history} />
             </section>
           )}
 
