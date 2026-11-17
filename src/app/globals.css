@@ -610,3 +610,8 @@ button.gold:hover { background: #ffcd52; border-color: #ffcd52; color: var(--ink
 .lp-msg.in:nth-child(3) em { color: #7cc4ff; }
 .lp-msg u { color: #53bdeb; text-decoration: none; word-break: break-all; }
 .lp-msg small { align-self: flex-end; font-size: 0.68rem; color: #8696a0; }
+/* keep the face clear: medal top-left, notes off the stats */
+.lp-medal { right: auto; left: 14px; top: 14px; transform: rotate(-10deg); }
+.lp-card-photo { background-position: 74% 30%; }
+.lp-note.n1 { left: -110px; top: 30%; }
+.lp-note.n2 { right: -50px; bottom: -6%; }
