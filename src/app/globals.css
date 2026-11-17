@@ -721,3 +721,28 @@ input[type=text],input[type=password],input[type=number],textarea{border-radius:
   .hm-show-in{grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);gap:64px}
   .hm-band-in{flex-direction:column;align-items:flex-start;gap:24px}
 }
+
+/* ---------- player hero v4: full-bleed photo, no pattern, no empty space ---------- */
+.ap-hero::before{display:none}
+.ap-hero-bg{display:none}
+.ap-sec{scroll-margin-top:110px}
+@media(min-width:900px){
+  .ap-hero.has-photo{background:var(--ap-deep)}
+  .ap-hero.has-photo .ap-hero-bg{display:block;position:absolute;inset:0 0 0 34%;background-size:cover;background-repeat:no-repeat}
+  .ap-hero.has-photo .ap-hero-bg::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,var(--ap-deep) 0%,rgba(12,39,30,.85) 18%,rgba(12,39,30,.25) 48%,rgba(12,39,30,0) 70%),linear-gradient(0deg,rgba(12,39,30,.55),transparent 35%)}
+  .ap-hero.has-photo .ap-portrait{display:none}
+  .ap-hero.has-photo .ap-hero-in{grid-template-columns:minmax(0,600px);min-height:min(560px,70vh);align-content:center;padding-top:56px;padding-bottom:56px}
+  .ap-hero.has-photo .ap-stats div{background:rgba(12,39,30,.55);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+  .ap-body{padding-top:40px;gap:40px}
+}
+@media(max-width:899px){
+  .ap-hero-in{padding-top:20px;padding-bottom:28px;gap:22px}
+  .ap-portrait::after{display:none}
+  .ap-portrait-img,.ap-portrait-none{aspect-ratio:4/3;border-radius:20px}
+}
+@media(max-width:899px){
+  .ap-stats.n3{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+  .ap-stats.n3 div{padding:12px}
+  .ap-stats.n3 dt{font-size:.6rem;letter-spacing:.08em}
+  .ap-stats.n3 dd{font-size:1.6rem}
+}

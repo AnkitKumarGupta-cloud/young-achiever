@@ -86,7 +86,8 @@ export default function ProfileView({ profile }: { profile: LoadedProfile }) {
         </div>
       </header>
 
-      <section className="ap-hero">
+      <section className={`ap-hero${main ? ' has-photo' : ''}`}>
+        {main && <div className="ap-hero-bg" style={photoStyle} aria-hidden="true" />}
         <div className="ap-wrap ap-hero-in">
           <div className="ap-hero-text">
             <p className="ap-eyebrow">
