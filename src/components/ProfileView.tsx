@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react';
+import { preconnect, preload } from 'react-dom';
 import Link from 'next/link';
 import type { LoadedProfile, TournamentResult } from '@/lib/types';
 import { buildBio, heroPos } from '@/lib/bio';
@@ -74,9 +74,14 @@ export default function ProfileView({ profile }: { profile: LoadedProfile }) {
     { id: 'photos', label: 'Photos', show: rest.length > 0 },
   ].filter((s) => s.show);
 
-  const photoStyle: CSSProperties | undefined = main
-    ? { backgroundImage: `url("${main.url}")`, backgroundPosition: `${pos.x}% ${pos.y}%` }
-    : undefined;
+
+  // Start the main photo download with the HTML instead of after the page has been laid out.
+  if (main) {
+    try {
+      preconnect(new URL(main.url).origin);
+    } catch {}
+    preload(main.url, { as: 'image', fetchPriority: 'high' });
+  }
 
   return (
     <article className="pp">
@@ -94,7 +99,15 @@ export default function ProfileView({ profile }: { profile: LoadedProfile }) {
         <div className={`pp-card${main ? '' : ' no-photo'}`}>
           <div className="pp-photo">
             {main ? (
-              <div className="pp-photo-img" style={photoStyle} role="img" aria-label={`Photo of ${a.full_name}`} />
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                className="pp-photo-img"
+                src={main.url}
+                alt={`Photo of ${a.full_name}`}
+                style={{ objectPosition: `${pos.x}% ${pos.y}%` }}
+                fetchPriority="high"
+                decoding="async"
+              />
             ) : (
               <div className="pp-photo-none" aria-hidden="true">
                 {initials}
@@ -114,6 +127,12 @@ export default function ProfileView({ profile }: { profile: LoadedProfile }) {
               {firstName}
               {lastParts.length > 0 && <span> {lastParts.join(' ')}</span>}
             </h1>
+            {stats.length === 0 && highlights.length === 0 && (
+              <p className="pp-start">
+                <span className="pp-start-dot" aria-hidden="true" />
+                Ratings, tournament results and certificates will appear here as {firstName} plays.
+              </p>
+            )}
             {stats.length > 0 && (
               <dl className={`pp-stats n${stats.length}`}>
                 {stats.map((s) => (
@@ -184,12 +203,23 @@ export default function ProfileView({ profile }: { profile: LoadedProfile }) {
                         <h3>{title}</h3>
                         {place && <p className="muted">{place}</p>}
                         <ul>
-                          {g.rows.map((r) => (
-                            <li key={r.id}>
-                              <span>{r.section || 'Overall'}</span>
-                              <b>{r.result}</b>
-                            </li>
-                          ))}
+                          {g.rows.map((r) => {
+                            const m = r.result.match(/\b(\d{1,2})\s?(st|nd|rd|th)\b/i);
+                            const top = m && Number(m[1]) <= 3 ? m[1] + m[2] : null;
+                            return (
+                              <li key={r.id} className={top ? 'top' : undefined}>
+                                <span>{r.section || 'Overall'}</span>
+                                <b>
+                                  {top && (
+                                    <i className="medal sm" aria-hidden="true">
+                                      {top}
+                                    </i>
+                                  )}
+                                  {top ? r.result.replace(/^\s*\d{1,2}\s?(st|nd|rd|th)\s*[·,-]?\s*/i, '') || r.result : r.result}
+                                </b>
+                              </li>
+                            );
+                          })}
                         </ul>
                       </div>
                     </li>
